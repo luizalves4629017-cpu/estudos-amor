@@ -88,17 +88,25 @@ button:focus-visible,a.btn:focus-visible{outline:2px solid var(--wine);outline-o
 .fb{animation:pop .4s ease both}.opt.sel i,.opt.ok i,.opt.bad i{animation:pop .3s ease both}
 nav button{transition:color .2s,transform .15s}nav button.on{transform:translateY(-2px)}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+.study-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 14px}
+.study-action{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:62px;padding:7px 4px;border:1px solid var(--soft);border-radius:13px;background:var(--card);color:var(--ink);font:inherit;font-size:.82rem;font-weight:650;line-height:1.2;text-align:center;cursor:pointer}
+.study-action[aria-pressed="true"]{background:var(--soft);border-color:var(--wine);box-shadow:inset 0 -2px var(--wine)}
+.study-icon{font-size:1.1rem;line-height:1.15}
+.study-summary ul{margin:6px 0 0;padding-inline-start:1.2em;line-height:1.55}
+.study-summary li{padding-block:9px}.study-summary li+li{border-top:1px solid var(--soft)}
+.study-summary li::marker{color:var(--wine)}.study-summary p,.study-example p{margin:6px 0}
+.study-summary summary,.study-example summary{font-weight:650}
 </style></head><body><div id="app"></div>
 <button id="tg" onclick="tgl()" title="Modo escuro">🌙</button><nav><div id="nav"></div></nav>
 <script>
 /* Fora do Claude: usa /api/ia (função da Vercel) no lugar do window.claude */
 (function(){if(window.claude)return;var code=null;try{code=localStorage.getItem('uece-code')}catch(e){}
-async function call(input){var msgs=typeof input=='string'?[{role:'user',content:input}]:input;
- var r=await fetch('/api/ia',{method:'POST',headers:{'Content-Type':'application/json','x-access-code':code||''},body:JSON.stringify({messages:msgs})});
- if(r.status==401){code=prompt('Código de acesso para usar a IA:');if(!code)throw{code:'not_granted'};try{localStorage.setItem('uece-code',code)}catch(e){}return call(input)}
+async function call(input,options){var msgs=typeof input=='string'?[{role:'user',content:input}]:input;
+ var r=await fetch('/api/ia',{method:'POST',headers:{'Content-Type':'application/json','x-access-code':code||''},body:JSON.stringify({messages:msgs,purpose:options?.purpose})});
+ if(r.status==401){code=prompt('Código de acesso para usar a IA:');if(!code)throw{code:'not_granted'};try{localStorage.setItem('uece-code',code)}catch(e){}return call(input,options)}
  if(r.status==429)throw{code:'rate_limited'};if(!r.ok){var err=await r.json().catch(()=>({}));throw{code:err.error==='sem_chave'?'not_configured':'upstream_error'}}return r.json()}
 var sample=async function(i){return call(i)};
-sample.json=async function(i){var j=await call(i),m=String(j.text||'').replace(/```json|```/g,'').trim(),s=m.search(/[\[{]/),e=Math.max(m.lastIndexOf(']'),m.lastIndexOf('}'));return JSON.parse(m.slice(s,e+1))};
+sample.json=async function(i,options){var j=await call(i,options),m=String(j.text||'').replace(/```json|```/g,'').trim(),s=m.search(/[\[{]/),e=Math.max(m.lastIndexOf(']'),m.lastIndexOf('}'));return JSON.parse(m.slice(s,e+1))};
 window.claude={use:async function(n){return n=='sample'?sample:null}}})();
 </script>
 <script>
@@ -189,7 +197,7 @@ function ass(){const{id,i}=V,e=(CT[id]||[])[i],t=(PG[id]||[])[i],ab=AB.find(a=>a
  const secs=[...(e?.bank?[]:[['vid','Assistir à aula'],['aula','Ler a teoria']]),['ex','Praticar'],['resumo','Resumo'],['aud','Áudio']];secs.push(ab?['ab','Questão aberta']:['gd','Modo guiado']);
  if(V.sec=='ab'&&V.rv&&ab)return resol(ab,id,i,t);
  const inQ=V.sec=='ex'||V.sec=='ab';
- let b=hd(id,mat(id).nome+' • '+t,V.sec=='ab'?'Questão aberta':V.sec=='ex'?'Exercício':V.sec=='gd'?'Modo guiado':'')+`<div class="tabs">${secs.map(([k,n])=>`<button class="pill ${V.sec==k?'on':''}" onclick="V.sec='${k}';V.q=-1;V.pk=undefined;V.rv=0;V.g=0;fx();ass()">${ICO[k]} ${n}</button>`).join('')}</div>`;
+ let b=hd(id,mat(id).nome+' • '+t,V.sec=='ab'?'Questão aberta':V.sec=='ex'?'Exercício':V.sec=='gd'?'Modo guiado':'')+`<div class="study-actions" role="group" aria-label="Atalhos do assunto">${secs.map(([k,n])=>`<button class="study-action" aria-pressed="${V.sec===k}" onclick="V.sec='${k}';V.q=-1;V.pk=undefined;V.rv=0;V.g=0;fx();ass()"><span aria-hidden="true" class="study-icon">${ICO[k]}</span><span>${n}</span></button>`).join('')}</div>`;
  const cap=im?`<div class="cr">${esc(im.alt)}${im.c?' · '+esc(im.c)+' ('+esc(im.l)+')':''}</div>`:'';
  if(V.sec=='vid')b+=vids(id,i,t,e);
  if(V.sec=='aula'){const R=(e&&e.resumo)||[];if(im)b+=`<div class="card"><img class="q" src="${im.s}" alt="${esc(im.alt)}">${cap}</div>`;
@@ -197,14 +205,22 @@ function ass(){const{id,i}=V,e=(CT[id]||[])[i],t=(PG[id]||[])[i],ab=AB.find(a=>a
   b+=((e&&e.aula)||[]).map(p=>{const[h,r]=lead(p);return`<div class="card"><b>${esc(h)}</b>${r?`<details><summary>Ver mais</summary><p style="margin:6px 0 0">${esc(r)}</p></details>`:''}</div>`}).join('');
   if(R.length)b+=`<div class="card amb"><b>⭐ Ponto-chave para prova</b><div style="margin-top:4px">${esc(R[R.length-1])}</div></div>`;
   b+=`<button class="btn w" onclick="V.sec='ex';V.q=-1;ass()">Praticar exercícios deste assunto</button>`}
- if(V.sec=='resumo'){b+=(e.resumo||[]).map(p=>`<div class="card mc"><span class="mn" style="background:var(--ok)">✓</span>${esc(p)}</div>`).join('');if(e.exemplo)b+=`<div class="card"><h2>Exemplo resolvido</h2><b>${esc(e.exemplo.q)}</b><div class="res">${esc(e.exemplo.res)}</div></div>`}
+ if(V.sec=='resumo')b+=studySummary(e);
  if(V.sec=='aud')b+=aud(e,id,i,t);
  if(V.sec=='ex')b+=exer(e,id,i,t);
  if(V.sec=='gd')b+=guiado(e,id,i,t);
  if(V.sec=='ab')b+=(ab?aberta(ab):'<div class="card">Este assunto ainda não tem questão aberta.</div>')+`<button class="btn o w" id="gab" style="margin-top:12px" onclick="genAb('${id}',${i},'${esc(t).replace(/'/g,'’')}')">✨ Gerar questão aberta com IA</button>`;
  A.innerHTML=b}
+function studySummary(e){
+ const points=(e?.resumo||[]).map(point=>{
+  const [first,rest]=lead(point);
+  return `<li><strong>${esc(first)}</strong>${rest?`<details><summary>Ver detalhes</summary><p>${esc(rest)}</p></details>`:''}</li>`;
+ });
+ const example=e?.exemplo;
+ return `<section class="card study-summary"><h2>Pontos-chave</h2>${points.length?`<ul>${points.join('')}</ul>`:'<p>Resumo ainda indisponível para este assunto.</p>'}</section>${example?`<details class="card study-example"><summary>Exemplo resolvido</summary><p><b>${esc(example.q)}</b></p><div class="res">${esc(example.res)}</div></details>`:''}`;
+}
 async function moreEx(id,i,t,nv){const key=id+':'+i,have=exs(id,i),n=have.length;D.gen=D.gen||{};const s=await smp();
- if(s){try{const r=await s.json(`Crie 3 questões NOVAS de múltipla escolha (4 alternativas) de vestibular sobre "${t}" (${mat(id).nome}), DIFERENTES destas: ${have.slice(-8).map(x=>x.q.slice(0,70)).join(' | ')}. ${LVP(nv)} Confira cada gabarito duas vezes.${SVGP} Responda SOMENTE um array JSON: [{"q":"","a":["","","",""],"c":0,"res":"","nivel":"Fácil|Médio|Difícil|Prova"}] (c = índice 0 a 3 da certa; varie a posição).`,{cache:false});
+ if(s){try{const r=await s.json(`Crie 3 questões NOVAS de múltipla escolha (4 alternativas) de vestibular sobre "${t}" (${mat(id).nome}), DIFERENTES destas: ${have.slice(-8).map(x=>x.q.slice(0,70)).join(' | ')}. ${LVP(nv)} Confira cada gabarito duas vezes.${SVGP} Responda SOMENTE um array JSON: [{"q":"","a":["","","",""],"c":0,"res":"","nivel":"Fácil|Médio|Difícil|Prova"}] (c = índice 0 a 3 da certa; varie a posição).`,{purpose:'exercises',cache:false});
   const out=[];mkQ(r,nv).forEach(x=>{if(!isDup(x,have.concat(out)))out.push(x)});if(out.length){D.gen[key]=(D.gen[key]||[]).concat(out);D.aiok=1;save();return n}}catch(x){}}
  const pool=[];(CT[id]||[]).forEach(e=>e&&(e.exercicios||[]).forEach(q=>pool.push(q)));let P=nv?pool.filter(q=>lv(q)==nv):pool;if(!P.length)P=pool;const last=have[n-1]||{};let rp=0;
  const sn=new Set(have.map(x=>nz2(x.q)));let c=P.filter(q=>!sn.has(nz2(q.q)));
@@ -306,7 +322,7 @@ async function genEx(id,i,t){
  const service=await smp();
  if(!service){if(V===view)practiceFromBank(id,i,nv);return}
  const s=service;
- try{const r=await s.json(`Crie 5 questões NOVAS de múltipla escolha (4 alternativas) no nível de vestibular (UECE/ENEM) sobre o assunto "${t}" da matéria ${mat(id).nome}, DIFERENTES destas (outro enunciado, tema e resposta): ${exs(id,i).slice(-12).map(x=>x.q.slice(0,70)).join(' | ')}. ${LVP(nv)} Conteúdo correto e sem ambiguidade. Confira cada gabarito duas vezes.${SVGP} Responda SOMENTE um array JSON: [{"q":"enunciado","a":["alternativa A","alternativa B","alternativa C","alternativa D"],"c":0,"res":"resolução curta e correta","nivel":"Fácil|Médio|Difícil|Prova","svg":"opcional","alt":"descrição acessível da figura, quando houver"}] onde c é o índice (0 a 3) da alternativa certa. Varie a posição da alternativa certa.`,{modelTier:'complex',cache:false});
+ try{const r=await s.json(`Crie 5 questões NOVAS de múltipla escolha (4 alternativas) no nível de vestibular (UECE/ENEM) sobre o assunto "${t}" da matéria ${mat(id).nome}, DIFERENTES destas (outro enunciado, tema e resposta): ${exs(id,i).slice(-12).map(x=>x.q.slice(0,70)).join(' | ')}. ${LVP(nv)} Conteúdo correto e sem ambiguidade. Confira cada gabarito duas vezes.${SVGP} Responda SOMENTE um array JSON: [{"q":"enunciado","a":["alternativa A","alternativa B","alternativa C","alternativa D"],"c":0,"res":"resolução curta e correta","nivel":"Fácil|Médio|Difícil|Prova","svg":"opcional","alt":"descrição acessível da figura, quando houver"}] onde c é o índice (0 a 3) da alternativa certa. Varie a posição da alternativa certa.`,{modelTier:'complex',purpose:'exercises',cache:false});
   const have=exs(id,i),out=[];mkQ(r,nv).forEach(x=>{if(!isDup(x,have.concat(out)))out.push(x)});if(!out.length)throw 0;const k=id+':'+i;D.gen=D.gen||{};const n=have.length;D.gen[k]=(D.gen[k]||[]).concat(out);D.aiok=1;save();if(V===view){V.q=n;V.pk=undefined;ass()}}
  catch(x){if(V===view){if(x?.code==='not_granted'){if(b){b.disabled=false;b.textContent=gtxt()}return}practiceFromBank(id,i,nv,x?.code)}}
 }
@@ -319,7 +335,7 @@ function practiceFromBank(id,i,nv,reason){
  V.q=unanswered.find(k=>k!==V.q)??unanswered[0]??choices[0];V.pk=undefined;ass()
 }
 async function genAb(id,i,t,btn,silent){const s=await smp();if(!s){if(!silent)alert('A geração por IA só funciona na página publicada dentro do Claude.');return false}const b=btn||$('#gab');if(b){b.disabled=true;b.textContent='Gerando…'}
- try{const r=await s.json(`Crie 1 questão ABERTA (discursiva) NOVA${NV()?' de nível '+NV()+' ('+DEF[NV()]+')':''}, diferente de "${(((D.genab||{})[id+':'+i]||AB.find(a=>a.w==id&&a.ti==i)||{}).q||'').slice(0,80)}", de vestibular sobre "${t}" (${mat(id).nome}), enunciado de no máximo 3 linhas. Responda SOMENTE um objeto JSON: {"q":"enunciado","passos":["3 a 5 passos da resolução"],"criterios":["3 a 4 itens curtos do que a resposta deve conter"],"modelo":"resposta-modelo de 3 a 5 linhas"}`,{modelTier:'complex',cache:false});
+ try{const r=await s.json(`Crie 1 questão ABERTA (discursiva) NOVA${NV()?' de nível '+NV()+' ('+DEF[NV()]+')':''}, diferente de "${(((D.genab||{})[id+':'+i]||AB.find(a=>a.w==id&&a.ti==i)||{}).q||'').slice(0,80)}", de vestibular sobre "${t}" (${mat(id).nome}), enunciado de no máximo 3 linhas. Responda SOMENTE um objeto JSON: {"q":"enunciado","passos":["3 a 5 passos da resolução"],"criterios":["3 a 4 itens curtos do que a resposta deve conter"],"modelo":"resposta-modelo de 3 a 5 linhas"}`,{modelTier:'complex',purpose:'exercises',cache:false});
   if(!r||!r.q)throw 0;D.genab=D.genab||{};D.genab[id+':'+i]=Object.assign({id:'g:'+id+':'+i+':'+Date.now(),ia:1},r,{nv:NV()||'Médio'});save();V.rv=0;ass();return true}catch(x){if(!silent)alert('Não consegui gerar agora.');if(b){b.disabled=false;b.textContent=btn?'Próxima questão':'✨ Gerar questão aberta com IA'}return false}}
 async function nextAb(b,id,i,t){b.disabled=true;b.textContent='Carregando…';if(await genAb(id,i,t,b,1))return;const key=id+':'+i,cur=((D.genab||{})[key]||AB.find(a=>a.w==id&&a.ti==i)||{}).q,o=AB.filter(a=>a.w==id&&a.q!=cur).sort(()=>Math.random()-.5)[0];if(!o){alert('Não há outra questão aberta disponível agora.');b.disabled=false;b.textContent='Próxima questão';return}D.genab=D.genab||{};D.genab[key]=Object.assign({},o,{id:'g2:'+key+':'+Date.now(),sourceQuestion:o.id});save();V.rv=0;ass()}
 /* áudio + autoavaliação */
