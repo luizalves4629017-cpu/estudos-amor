@@ -1,5 +1,5 @@
 // Service worker: o app abre mesmo sem internet e se atualiza sozinho quando há versão nova.
-const V = 'estudos-v1';
+const V = 'estudos-v2';
 const ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(V).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
