@@ -123,6 +123,20 @@ nav button.on{background:var(--soft);color:var(--wine);transform:none}
  .enem-sheet select{min-height:44px}
  #enem-key{min-height:100px;margin:8px 0}
 .audio-settings{flex-wrap:wrap;margin-bottom:12px;gap:8px}.audio-settings label{flex:1 1 140px;font-size:14px}.audio-settings select{margin-top:4px;min-height:44px}
+ .new-home{max-width:620px;margin:0 auto}
+ .new-home h1{margin:12px 0 18px;font-size:clamp(28px,7vw,42px)}
+ .home-brand{text-align:center;font-weight:750;font-size:20px;margin:4px 42px 18px}
+ .home-resume{padding:20px;background:#eedff4;border:1px solid #e3cce9}
+ [data-theme=dark] .home-resume{background:var(--soft);border-color:var(--pink)}
+ .home-resume strong{font-size:22px}
+ .home-resume .btn{margin-top:14px}
+ .home-review,.home-progress button{width:100%;text-align:left;color:var(--ink);font:inherit;cursor:pointer}
+ .home-review{display:grid;align-items:center;grid-template-columns:auto 1fr auto;gap:12px;border:1px solid var(--pink)}
+ .home-review strong,.home-review small{display:block}
+ .home-review>span:first-child{padding:8px;background:var(--soft);border-radius:12px}
+ .home-progress button{display:block;border:0;background:none;padding:8px 0}
+ .home-progress button+button{border-top:1px solid var(--pink)}
+ .home-tools{flex-wrap:wrap;margin-top:10px}
 </style></head><body><div id="app"></div>
 <button id="tg" onclick="tgl()" title="Modo escuro">🌙</button><nav><div id="nav"></div></nav>
 <script>
@@ -176,6 +190,26 @@ function render(){nav();({home,mats,prov,rev,red,per})[tab]()}
 function planDay(w){const c=(w+6)%7;return[...new Set(PL.map(r=>r[c]))].filter(x=>MAP[x]||x=='Simulado')}
 function home(){
  if(V.t=='foco')return foco();if(V.t=='cron')return cron();if(V.t=='quick')return quickReview();
+ if(D.homeLayout!=='classic')return redesignedHome();
+ classicHome();
+}
+function redesignedHome(){
+ const {id,i}=D.last||{},topic=PG[id]?.[i],reviewCount=Math.min(5,erros().length);
+ const subjects=MT.map(m=>({m,stats:(PG[m.id]||[]).map((_,i)=>topicProgress(m.id,i))}));
+ subjects.sort((a,b)=>(b.m.id===id)-(a.m.id===id)||b.stats.filter(t=>t.answered).length-a.stats.filter(t=>t.answered).length);
+ A.innerHTML=`<section class="new-home">
+  <p class="home-brand">Cantinho da Ágatha</p><h1>Oi, ${esc(D.name)} 🌸</h1>
+  <section class="card home-resume"><h2>${topic?'Continuar de onde parei':'Começar a estudar'}</h2>
+   ${topic?`<div class="row">${dot(id)}<div><strong>${esc(mat(id).nome)}</strong><div>${esc(topic)}</div></div></div>
+   ${topicProgress(id,i).answered?progressBar(topicProgress(id,i).accuracy,'Acertos em '+topic):''}`:''}
+   <button class="btn w" onclick="${topic?'continueStudy()':"go('mats')"}">${topic?'Continuar estudo':'Escolher matéria'}</button>
+  </section>
+  <button type="button" class="card home-review" onclick="go('home',{t:'quick'})"><span aria-hidden="true">📋</span><span><strong>Revisar agora</strong><small>${reviewCount?reviewCount+(reviewCount===1?' questão para praticar':' questões para praticar'):'Seus erros dos exercícios aparecem aqui'}</small></span><span aria-hidden="true">›</span></button>
+  <section><h2>Seu progresso</h2><div class="card home-progress">${subjects.slice(0,2).map(({m,stats})=>`<button type="button" onclick="go('mats',{t:'sub',id:'${m.id}'})"><b>${esc(m.nome)}</b>${subjectProgress(m.id,stats)}</button>`).join('')}</div></section>
+  <div class="row home-tools"><button class="btn o" onclick="go('mats')">Todas as matérias</button><button class="btn o" onclick="go('home',{t:'cron'})">Cronograma</button><button class="btn o" onclick="go('home',{t:'foco'})">Foco</button></div>
+ </section>`;
+}
+function classicHome(){
  let all=0,okk=0;MT.forEach(m=>{const p=prog(m.id);all+=p.tot;okk+=p.ok});const p=all?Math.round(okk/all*100):0;
  let dl='Defina a data da prova no Perfil';if(D.exam){const d=Math.ceil((new Date(D.exam+'T00:00')-new Date())/864e5);dl=d>0?`Faltam <b>${d} dias</b> para a prova`:d==0?'<b>É hoje!</b> Boa prova 💜':'A data da prova já passou'}
  const w=new Date().getDay(),mon=Date.now()-((w+6)%7)*864e5;
@@ -690,8 +724,19 @@ async function importProgress(input){
   per();$('#progress-status').textContent='Backup restaurado.';
  }catch(e){$('#progress-status').textContent='Não foi possível importar esse backup.'}
 }
+function setHomeLayout(value){
+ const previous=D.homeLayout;
+ D.homeLayout=value;
+ if(!save()){
+  D.homeLayout=previous;
+  per();
+  $('#progress-status').textContent='Não foi possível guardar a preferência.';
+  return;
+ }
+ go('home');
+}
 function per(){let ex=0;Object.values(D.ex).forEach(r=>ex+=Object.keys(r).length);
- A.innerHTML=`<h1>Perfil</h1><div class="card"><label class="mut">Seu nome</label><input value="${esc(D.name)}" oninput="D.name=this.value;save()"><label class="mut" style="display:block;margin-top:10px">Data da prova</label><input type="date" value="${D.exam}" oninput="D.exam=this.value;save()"></div><div class="card"><div>Exercícios respondidos: <b>${ex}</b></div><div>Dias estudados: <b>${Object.keys(D.days).length}</b></div><div>Minutos em foco: <b>${D.foc}</b></div></div><div class="card"><button type="button" class="btn w" onclick="salvarProgresso()">Salvar progresso</button><p class="mut" id="progress-status" role="status">O progresso é salvo automaticamente neste navegador.</p><div class="row" style="margin-top:10px"><button type="button" class="btn o" onclick="exportProgress()">Exportar backup</button><button type="button" class="btn o" onclick="$('#backup-input').click()">Importar backup</button><input id="backup-input" type="file" accept=".json,application/json" hidden onchange="importProgress(this)"></div></div><button class="btn o w" style="margin-bottom:10px" onclick="tgl()">Alternar modo escuro / claro</button>${window.__PWA&&!matchMedia('(display-mode: standalone)').matches?`<button class="btn w" style="margin-bottom:10px" onclick="instalar()">📲 Instalar como app</button>`:''}<button class="btn o w" onclick="if(confirm('Apagar todo o progresso?')){D.ex={};D.ab={};D.days={};D.foc=0;D.plano={};D.sims={};D.essay='';save();render()}">Zerar progresso</button>`}
+ A.innerHTML=`<h1>Perfil</h1><div class="card"><label for="home-layout"><b>Visual da tela inicial</b></label><select id="home-layout" onchange="setHomeLayout(this.value)" style="margin-top:6px"><option value="new" ${D.homeLayout!=='classic'?'selected':''}>Novo</option><option value="classic" ${D.homeLayout==='classic'?'selected':''}>Clássico</option></select></div><div class="card"><label class="mut">Seu nome</label><input value="${esc(D.name)}" oninput="D.name=this.value;save()"><label class="mut" style="display:block;margin-top:10px">Data da prova</label><input type="date" value="${D.exam}" oninput="D.exam=this.value;save()"></div><div class="card"><div>Exercícios respondidos: <b>${ex}</b></div><div>Dias estudados: <b>${Object.keys(D.days).length}</b></div><div>Minutos em foco: <b>${D.foc}</b></div></div><div class="card"><button type="button" class="btn w" onclick="salvarProgresso()">Salvar progresso</button><p class="mut" id="progress-status" role="status">O progresso é salvo automaticamente neste navegador.</p><div class="row" style="margin-top:10px"><button type="button" class="btn o" onclick="exportProgress()">Exportar backup</button><button type="button" class="btn o" onclick="$('#backup-input').click()">Importar backup</button><input id="backup-input" type="file" accept=".json,application/json" hidden onchange="importProgress(this)"></div></div><button class="btn o w" style="margin-bottom:10px" onclick="tgl()">Alternar modo escuro / claro</button>${window.__PWA&&!matchMedia('(display-mode: standalone)').matches?`<button class="btn w" style="margin-bottom:10px" onclick="instalar()">📲 Instalar como app</button>`:''}<button class="btn o w" onclick="if(confirm('Apagar todo o progresso?')){D.ex={};D.ab={};D.days={};D.foc=0;D.plano={};D.sims={};D.essay='';save();render()}">Zerar progresso</button>`}
 function cleanGen(){let ch=0;for(const key in (D.gen||{})){const[id,i]=key.split(':'),base=((CT[id]||[])[i]||{}).exercicios||[],keep=[],rm=[];D.gen[key].forEach((q,j)=>{if(isDup(q,base.concat(keep)))rm.push(base.length+j);else keep.push(q)});
  if(rm.length){ch=1;D.gen[key]=keep;const sh=kk=>kk-rm.filter(x=>x<kk).length,m=o=>{const n={};for(const k in o){if(rm.includes(+k))continue;n[sh(+k)]=o[k]}return n};if(D.ex&&D.ex[key])D.ex[key]=m(D.ex[key]);['svg','rz'].forEach(f=>{if(!D[f])return;const n={};for(const k in D[f]){if(!k.startsWith(key+':')){n[k]=D[f][k];continue}const kk=+k.slice(key.length+1);if(rm.includes(kk))continue;n[key+':'+sh(kk)]=D[f][k]}D[f]=n})}}
  if(ch)save()}
