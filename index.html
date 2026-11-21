@@ -147,6 +147,7 @@ nav button.on{background:var(--soft);color:var(--wine);transform:none}
  @keyframes launch-name{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
  @keyframes launch-exit{from{opacity:1}to{opacity:0;visibility:hidden}}
  @media(prefers-reduced-motion:reduce){.launch-intro img,.launch-intro b{animation:none}}
+.enem-reader{width:min(96vw,860px);max-height:85dvh;overflow:auto;color:var(--ink);border:1px solid var(--pink);margin:auto}.enem-reader .row{justify-content:space-between;flex-wrap:wrap;margin-bottom:8px}.enem-reader canvas{display:block;width:100%;height:auto}.enem-reader canvas[hidden]{display:none}.enem-reader::backdrop{background:#0009}
 </style></head><body>
 <div class="launch-intro" id="launch-intro" aria-hidden="true"><div class="launch-intro-inner"><img src="/icon-192.png?v=2" alt="" width="192" height="192"><b>Cantinho da Ágatha</b></div></div>
 <audio id="launch-audio" src="/toque-abertura.wav" preload="auto"></audio>
@@ -625,6 +626,45 @@ const ENEM_PDF='https://download.inep.gov.br/enem/provas_e_gabaritos/';
 function enemUrl(year,day,kind){
  return `${ENEM_PDF}${year}_${kind}_impresso_D${day}_CD${day===1?1:7}.pdf`;
 }
+async function openEnemPdf(year,day,kind){
+ const reader=document.createElement('dialog');
+ reader.className='card enem-reader';
+ reader.innerHTML=`<div class="row"><b>${kind==='PV'?'Prova':'Gabarito'} · ENEM ${year} · Dia ${day}</b><button type="button" class="btn o">Fechar</button></div>
+ <div class="row"><button type="button" class="btn o" disabled>Anterior</button><span role="status">Carregando PDF…</span><button type="button" class="btn o" disabled>Próxima</button></div><canvas hidden aria-label="Página do PDF"></canvas>`;
+ document.body.append(reader);
+ const [close,prev,next]=reader.querySelectorAll('button');
+ const status=reader.querySelector('[role=status]'),canvas=reader.querySelector('canvas');
+ let loading,number=1,busy=false;
+ close.onclick=()=>reader.close();
+ reader.addEventListener('close',()=>{reader.remove();loading?.destroy().catch(()=>{})},{once:true});
+ reader.showModal();
+ const failure=()=>{if(reader.open){status.textContent='Não foi possível abrir o PDF do Inep agora. Tente novamente.';prev.disabled=next.disabled=true}};
+ try{
+  const pdf=await import('/pdf/pdf.min.mjs');
+  if(!reader.open)return;
+  pdf.GlobalWorkerOptions.workerSrc='/pdf/pdf.worker.min.mjs';
+  const file=enemUrl(year,day,kind).split('/').pop();
+  loading=pdf.getDocument({url:'/enem-pdf/'+file,isEvalSupported:false});
+  const doc=await loading.promise;
+  async function show(offset){
+   if(busy||!reader.open)return;
+   busy=true;prev.disabled=next.disabled=true;number+=offset;
+   try{
+    const page=await doc.getPage(number);
+    if(!reader.open)return;
+    const base=page.getViewport({scale:1});
+    const viewport=page.getViewport({scale:Math.min(2,Math.max(1,reader.clientWidth/base.width*1.7))});
+    canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+    await page.render({canvas,viewport}).promise;
+    if(!reader.open)return;
+    canvas.hidden=false;status.textContent=`Página ${number} de ${doc.numPages}`;
+    prev.disabled=number<=1;next.disabled=number>=doc.numPages;
+   }catch{failure()}finally{busy=false}
+  }
+  prev.onclick=()=>show(-1);next.onclick=()=>show(1);
+  await show(0);
+ }catch{failure()}
+}
 function enemStart(year,day){
  const lang=day===1?$('#enem-lang').value:'';
  D.enemRun={year,day,lang,answers:{},until:Date.now()+(day===1?330:300)*60000};
@@ -637,7 +677,7 @@ function enemExam(){
  if(!a.finished&&Date.now()>=a.until){a.finished=true;save()}
  const start=a.day===1?1:91;
  A.innerHTML=`<button class="btn o" onclick="go('prov')">Voltar às provas</button><h1>ENEM ${a.year} · ${a.day}º dia</h1>
- <div class="card"><div class="row"><a class="btn o" href="${enemUrl(a.year,a.day,'PV')}" target="_blank" rel="noopener">Abrir caderno oficial</a><b id="enem-clock">${fmt(Math.max(0,Math.ceil((a.until-Date.now())/1000)))}</b></div>
+ <div class="card"><div class="row"><button class="btn o" onclick="openEnemPdf(${a.year},${a.day},'PV')">Abrir caderno oficial</button><b id="enem-clock">${fmt(Math.max(0,Math.ceil((a.until-Date.now())/1000)))}</b></div>
  ${a.lang?`<p class="mut">Língua escolhida: ${a.lang==='en'?'Inglês':'Espanhol'}. Siga a seção correspondente do caderno.</p>`:''}</div>
  ${a.finished?enemCorrection(a):`<div class="card"><h2>Cartão-resposta</h2><div class="enem-sheet">${Array.from({length:90},(_,i)=>{const n=start+i;return `<label>Questão ${n}<select data-enem-question onchange="enemAnswer(${n},this.value)"><option value="">—</option>${[...'ABCDE'].map(x=>`<option ${a.answers[n]===x?'selected':''}>${x}</option>`).join('')}</select></label>`;}).join('')}</div></div>
  <button class="btn w" onclick="if(confirm('Encerrar e corrigir este simulado?'))finishEnem()">Encerrar simulado</button>`}`;
@@ -659,7 +699,7 @@ function finishEnem(){
 function enemCorrection(a){
  const areas=a.day===1?['Linguagens','Ciências Humanas']:['Ciências da Natureza','Matemática'];
  const results=a.score?`<p><b>${a.score.map((v,i)=>`${areas[i]}: ${v[0]}/${v[1]}`).join(' · ')}</b></p>`:'';
- return `<div class="card"><h2>Conferir resultado</h2><a class="btn o" target="_blank" rel="noopener" href="${enemUrl(a.year,a.day,'GB')}">Abrir gabarito oficial</a>
+ return `<div class="card"><h2>Conferir resultado</h2><button class="btn o" onclick="openEnemPdf(${a.year},${a.day},'GB')">Abrir gabarito oficial</button>
  <p>Digite as 90 letras na ordem do caderno, incluindo apenas a língua escolhida no 1º dia. Use X para questão anulada.</p>
  <textarea id="enem-key" aria-label="Gabarito oficial" placeholder="A B C D E ..."></textarea><button class="btn" onclick="gradeEnem()">Calcular acertos</button><p class="mut" id="enem-feedback" role="status"></p>${results}</div>`;
 }
@@ -682,10 +722,9 @@ function enemPapers(){
   const year=2026-i;
   return `<details class="card enem-year"><summary><b>ENEM ${year}</b></summary>
    ${[1,2].map(day=>{
-    const code=`impresso_D${day}_CD${day===1?1:7}.pdf`;
     return `<div class="enem-day"><b>${day}º dia</b><div class="row">
-     <a class="btn" target="_blank" rel="noopener" href="${ENEM_PDF}${year}_PV_${code}">Abrir prova</a>
-     <a class="btn o" target="_blank" rel="noopener" href="${ENEM_PDF}${year}_GB_${code}">Ver gabarito</a><button class="btn o" onclick="go('prov',{setup:[${year},${day}]})">Fazer simulado</button>
+     <button class="btn" onclick="openEnemPdf(${year},${day},'PV')">Abrir prova</button>
+     <button class="btn o" onclick="openEnemPdf(${year},${day},'GB')">Ver gabarito</button><button class="btn o" onclick="go('prov',{setup:[${year},${day}]})">Fazer simulado</button>
     </div></div>`;
    }).join('')}</details>`;
  }).join('');
