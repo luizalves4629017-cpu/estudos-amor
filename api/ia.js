@@ -1,4 +1,4 @@
-// Exercícios usam Gemini quando configurado. As demais funções usam Anthropic.
+// Exercícios preferem Gemini. Outras funções usam Anthropic ou Gemini como alternativa.
 // A chave fica só em variável de ambiente (nunca no código público).
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'metodo' });
@@ -14,8 +14,9 @@ module.exports = async (req, res) => {
   if (!Array.isArray(msgs) || !msgs.length || JSON.stringify(msgs).length > 20000)
     return res.status(400).json({ error: 'entrada' });
   const geminiKey = process.env.GEMINI_API_KEY;
-  if (body.purpose === 'exercises' && geminiKey) return generateExercises(msgs, geminiKey, res);
+  if (body.purpose === 'exercises' && geminiKey) return generateWithGemini(msgs, geminiKey, res, true);
   const key = process.env.ANTHROPIC_API_KEY;
+  if (!key && geminiKey) return generateWithGemini(msgs, geminiKey, res, false);
   if (!key) return res.status(500).json({ error: 'sem_chave' });
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -39,8 +40,8 @@ module.exports = async (req, res) => {
 };
 
 
-async function generateExercises(messages, key, res) {
-  if (messages.length !== 1 || messages[0]?.role !== 'user' || typeof messages[0].content !== 'string')
+async function generateWithGemini(messages, key, res, exercises) {
+  if (exercises && (messages.length !== 1 || messages[0]?.role !== 'user' || typeof messages[0].content !== 'string'))
     return res.status(400).json({ error: 'entrada' });
   try {
     const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
@@ -50,8 +51,12 @@ async function generateExercises(messages, key, res) {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: messages[0].content }] }],
-          generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192 },
+          systemInstruction: { parts: [{ text: 'Responda exatamente no formato pedido, sem texto extra antes ou depois.' }] },
+          contents: messages.map(message => ({
+            role: message?.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: String(message?.content ?? '') }],
+          })),
+          generationConfig: { maxOutputTokens: 8192, ...(exercises ? { responseMimeType: 'application/json' } : {}) },
         }),
       },
     );
