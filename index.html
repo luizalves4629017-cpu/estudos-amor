@@ -106,6 +106,22 @@ nav button.on{background:var(--soft);color:var(--wine);transform:none}
 .review-filter select{min-height:44px}
 .review-flash{display:grid;place-items:center;width:100%;color:var(--ink);font:inherit;border:1px solid var(--pink);border-radius:20px;min-height:180px;padding:18px}
 #progress-status{margin:8px 0 0}
+ .study-progress{display:block;width:100%;height:9px;margin:7px 0;accent-color:var(--wine)}
+ .subject-progress,.topic-title{color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+ .subject-progress{display:block;width:100%;border:0}
+ .subject-progress .mut{text-align:left}
+ .topic-progress .row{justify-content:space-between;flex-wrap:wrap;gap:4px 10px}
+ .topic-title{display:block;border:0;padding:0;background:none;min-height:44px;font-weight:700}
+ .topic-progress .btn{margin-top:8px;min-height:44px}
+ .progress-caption{margin:8px 0 0}
+ .enem-heading{margin-top:24px}
+ .enem-year summary{cursor:pointer;min-height:44px;padding-block:9px}
+ .enem-day{border-top:1px solid var(--pink);padding:12px 0 4px}
+ .enem-day .row{margin-top:7px;flex-wrap:wrap}
+ .enem-sheet{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px}
+ .enem-sheet label{font-size:13px}
+ .enem-sheet select{min-height:44px}
+ #enem-key{min-height:100px;margin:8px 0}
 </style></head><body><div id="app"></div>
 <button id="tg" onclick="tgl()" title="Modo escuro">🌙</button><nav><div id="nav"></div></nav>
 <script>
@@ -158,7 +174,7 @@ function render(){nav();({home,mats,prov,rev,red,per})[tab]()}
 /* ---------- INÍCIO ---------- */
 function planDay(w){const c=(w+6)%7;return[...new Set(PL.map(r=>r[c]))].filter(x=>MAP[x]||x=='Simulado')}
 function home(){
- if(V.t=='foco')return foco();if(V.t=='cron')return cron();
+ if(V.t=='foco')return foco();if(V.t=='cron')return cron();if(V.t=='quick')return quickReview();
  let all=0,okk=0;MT.forEach(m=>{const p=prog(m.id);all+=p.tot;okk+=p.ok});const p=all?Math.round(okk/all*100):0;
  let dl='Defina a data da prova no Perfil';if(D.exam){const d=Math.ceil((new Date(D.exam+'T00:00')-new Date())/864e5);dl=d>0?`Faltam <b>${d} dias</b> para a prova`:d==0?'<b>É hoje!</b> Boa prova 💜':'A data da prova já passou'}
  const w=new Date().getDay(),mon=Date.now()-((w+6)%7)*864e5;
@@ -167,8 +183,38 @@ function home(){
  A.innerHTML=`<h1>Oi, ${esc(D.name)} 🌸</h1>
  <div class="card hero" onclick="go('per')"><div style="font-size:18px">${dl}</div><div class="ring" style="--p:${p}"><span>${p}%</span></div></div>
  <div class="days">${dys}</div>
+ <div class="card"><h2>Seu próximo passo</h2><div class="row"><button class="btn" onclick="go('home',{t:'quick'})">Revisar agora</button>${D.last&&PG[D.last.id]?.[D.last.i]?`<button class="btn o" onclick="continueStudy()">Continuar de onde parei</button>`:''}</div>${D.last&&PG[D.last.id]?.[D.last.i]?`<p class="mut progress-caption">${esc(mat(D.last.id).nome)} · ${esc(PG[D.last.id][D.last.i])}</p>`:''}</div>
  <div class="card"><h2>Hoje</h2><div class="mut" style="margin-bottom:10px">${pd.length?pd.join(' · '):'Sem estudo marcado no cronograma'}</div><div class="row"><button class="btn" onclick="hoje()">Começar</button><button class="btn o" onclick="go('home',{t:'cron'})">Cronograma</button><button class="btn o" onclick="go('home',{t:'foco'})">Foco</button></div></div>
  <div class="card"><h2>Matérias</h2><div class="grid">${MT.map(m=>`<button class="sub" onclick="go('mats',{t:'sub',id:'${m.id}'})">${dot(m.id)}${esc(m.nome)}</button>`).join('')}</div></div>`}
+function continueStudy(){
+ const {id,i,sec,q}=D.last||{};
+ if(PG[id]?.[i])go('mats',{t:'ass',id,i,sec,q});
+}
+function quickReview(){
+ if(!V.queue){
+  const missed=erros(), counts=new Map();
+  for(const c of missed){const key=c.id+':'+c.i;counts.set(key,(counts.get(key)||0)+1)}
+  V.queue=missed.sort((a,b)=>counts.get(b.id+':'+b.i)-counts.get(a.id+':'+a.i)).slice(0,5);
+  V.at=0;V.hits=0;
+ }
+ const c=V.queue[V.at];
+ const title=`<button class="btn o" onclick="go('home')">Voltar ao início</button><h1>Revisar agora</h1>`;
+ if(!c){
+  A.innerHTML=title+`<div class="card">${V.queue.length?`Você acertou <b>${V.hits} de ${V.queue.length}</b> nesta revisão.`:'Responda exercícios nas matérias para montar sua revisão.'}</div>`;
+  return;
+ }
+ const q=exs(c.id,c.i)[c.k],done=V.pick!==undefined;
+ A.innerHTML=title+`<p class="mut">${V.at+1} de ${V.queue.length} · ${esc(PG[c.id][c.i])}</p><div class="card">${figQ(c.id,c.i,c.k,q)}${esc(q.q)}</div>
+ ${q.a.map((a,j)=>`<button class="opt alt ${done?(j==q.c?'ok':j===V.pick?'bad':''):''}" ${done?'disabled':''} onclick="quickAnswer(${j})">${esc(a)}</button>`).join('')}
+ ${done?`<div class="card">${esc(q.res||'')}</div><button class="btn" onclick="V.at++;delete V.pick;quickReview()">${V.at+1===V.queue.length?'Ver resultado':'Próxima questão'}</button>`:''}`;
+}
+function quickAnswer(j){
+ if(V.pick!==undefined)return;
+ const c=V.queue[V.at],q=exs(c.id,c.i)[c.k];
+ V.pick=j;
+ if(j==q.c){V.hits++;D.ex[c.id+':'+c.i][c.k]=j}
+ D.days[today()]=1;save();quickReview();
+}
 function hoje(){const pd=planDay(new Date().getDay());const id=pd.map(x=>MAP[x]).find(Boolean);if(!id){go('prov');return}const n=(PG[id]||[]).length;let i=0;for(;i<n;i++){const e=(CT[id]||[])[i];const r=D.ex[id+':'+i]||{};if(e&&(e.exercicios||[]).some((q,k)=>r[k]===undefined))break}go('mats',{t:'ass',id,i:Math.min(i,n-1),sec:'aula'})}
 /* ---------- CRONOGRAMA ---------- */
 function cron(){
@@ -195,17 +241,59 @@ const VD_EXISTENTES={
 };
 const VD={"port:0":[{"t":"CESPE - COMPREENSÃO E INTERPRETAÇÃO DE TEXTOS  DE GÊNEROS VARIADOS (PARTE 02)","id":"s3qzO-w-T8Y"}],"port:1":[{"t":"Língua Portuguesa - Aula 07 - Linguística textual: Regularidades de gêneros textuais","id":"Zvv0BB-dhc4","p":"centrodemidias"}],"port:2":[{"t":"Gramática no ENEM: concordância, regência, crase e pontuação | Descomplica","id":"3vZ97nbTwtg","p":"Descomplica"}],"port:3":[{"t":"Língua Portuguesa - Aula 05 - Conhecimento de obras literárias das literaturas.","id":"VHhkqxqixJo","p":"centrodemidias"}],"filo:0":[{"t":"O nascimento da filosofia: do mito ao logos (Platão, mitos gregos e pré-socráticos)","id":"QVCUV7p6Sxg","p":"Prof. Carlos Menzomo - Filosofia na Vida Real"}],"filo:1":[{"t":"Filosofia | Ética de Aristóteles","id":"6F13bLpYXmg","p":"FGV"}],"filo:2":[{"t":"PLATÃO - IDEALISMO, VIRTUDE E POLÍTICA | Filosofia do Direito","id":"xVH6fFusIzY"}],"filo:3":[{"t":"02 - É lógico! - Filosofia - Ens. Médio - Telecurso","id":"L-slE5T-dtw","p":"Novo Telecurso"}],"filo:4":[{"t":"Tobias Barreto e a crítica ao determinismo positivista","id":"OBEGdjXwT50","p":"Túlio Madson"}],"socio:0":[{"t":"▶️Sociologia - Ensino Médio - Pensadores Clássicos da Sociologia - Marx - Durkheim - Weber","id":"bYsU8z1010Q","p":"CANAL PÉ DE TAIOBA"}],"socio:1":[{"t":"SOCIOLOGIA | Trabalho e Sociedade: o trabalho como organização social","id":"eH18vCOR2KI","p":"Covil Sociológico"}],"socio:2":[{"t":"QUADRO DE CONCEITOS 3 - Estado, Governo e Sociedade","id":"tAVhODTVhvQ"}],"socio:3":[{"t":"1ª Série - Geografia - Aula 14 - Economia Capitalista: Diferenças Entre Globalização e Mundialização","id":"AX2OVVTrZIk","p":"Centro de Mídias Educacionais do Acre - CEMEAC"}],"socio:4":[{"t":"MOVIMENTOS SOCIAIS: TUDO QUE VOCÊ PRECISA SABER!","id":"4Lt-v2NCkL8","p":"Toda Matéria"}],"socio:5":[{"t":"1EM - SOCIOLOGIA - JUVENTUDE E SOCIEDADE","id":"DSA2m3T6A08","p":"CPM LONDRINA"}],"socio:6":[{"t":"Gênero e Sexualidade na Geografia - Aula 1","id":"z-QDCPJELXs","p":"uspfflch"}],"socio:7":[{"t":"SOC - SIS 3/MACRO - 2025 - AULA 03: Indústria Cultural: Os meios de comunicação de massa","id":"VnK1Ki2voQU"}],"socio:8":[{"t":"AULA 1 - EDUCAÇÃO PARA AS RELAÇÕES ÉTNICO RACIAIS","id":"1r2CGOukOzY","p":"ESTUDIOEAD IFNMG"}],"socio:9":[{"t":"RELIGIÃO E SOCIEDADE: relação e influência | Sociologia para o Enem | Fábio Luís Pereira","id":"jff70CcnhVc"}],"socio:10":[{"t":"Aula 13 - Sociologia: Cultura brasileira","id":"YL2--WJnQ28"}],"red:0":[{"t":"REDAÇÃO UECE EDITORIAL","id":"T8BcpkcjIo0"}],"mat:0":[{"t":"Conjuntos: Introdução (Aula 1 de 4)","id":"0aUEDxYjZg8"}],"mat:1":[{"t":"Conjuntos Numéricos e a Reta Numérica - Professora Angela","id":"VdWrKjdUu98","p":"Professora Angela"}],"mat:2":[{"t":"Ensino Médio | 1º Ano | Funções | Aula 1","id":"zOh4vnf9dWA"}],"mat:3":[{"t":"Matemática | Funções Afim, Exponencial, Logarítmica, Quadrática e Trigonométrica","id":"J841jAJwY9M","p":"Editora BP no Enem"}],"mat:4":[{"t":"O Princípio Fundamental da Contagem (PFC) | Análise Combinatória - Curso Completo (Aula 01)","id":"6QsrR9QFLro"}],"mat:5":[{"t":"PA e PG | ENEM e Vestibulares | Me Salva!","id":"dD-7-upfnOM"}],"mat:6":[{"t":"Matrizes e Determinantes : Teoria Completa + Questões Comentadas","id":"2yFgP4teRJg"}],"mat:7":[{"t":"ÁREAS | GEOMETRIA PLANA | APRENDA NA PRÁTICA","id":"k3nn04tnInA","p":"MARCEMÁTICA"}],"mat:8":[{"t":"GEOMETRIA ESPACIAL - AULA 01: POLIEDROS.","id":"cG21ZWS0-uk","p":"Prof. Rafael Grippa - Matemática"}],"mat:9":[{"t":"Aula 01 - Trigonometria - Razões Trigonométricas no Triângulo Retângulo - Legendado","id":"EInfHdQJHeg","p":"Portal da Matemática OBMEP"}],"mat:10":[{"t":"Geometria Analítica","id":"EdM5qFTQvhY","p":"Descomplica"}],"mat:11":[{"t":"UECE 2024.1 | RESOLUÇÃO PROVA DE MATEMÁTICA | Prof. Paulo Santiago","id":"S9SFl3qZFBc"}],"bio:0":[{"t":"Evolução e Origem da Vida - 1ª Série Ensino Médio","id":"YKj5cldvJ10","p":"Prof. Sidney Araújo"}],"bio:1":[{"t":"Classificação de domínios e reinos: quais as diferenças?","id":"1otbMbYPZyw"}],"bio:2":[{"t":"Bases Moleculares da Vida - Aula 01: Introdução","id":"dRLS9VktuLU","p":"Juliana Silva-Freitas"}],"bio:3":[{"t":"Biologia para o Enem | Bioquímica, Citologia e Bioenergética","id":"teAsViA_Knk"}],"bio:4":[{"t":"INTRODUÇÃO À HISTOLOGIA - Histologia | Biologia com Samuel Cunha","id":"emucgjvtdw0"}],"bio:5":[{"t":"Biologia - Aula 01 - Sistemas do corpo humano","id":"XpcBR67XmnE","p":"centrodemidias"}],"bio:6":[{"t":"Reprodução dos Seres Vivos Voltado ao ENEM | Aula 01: Introdução a Reprodução é sua Classificação","id":"txST7uq828w"}],"bio:7":[{"t":"INTRODUÇÃO À GENÉTICA | Prof. Paulo Jubilut","id":"2rqEmRrtkYc"}],"bio:8":[{"t":"Conceitos Básicos da ECOLOGIA | Prof. Paulo Jubilut","id":"XvdePktAui8"}],"bio:9":[{"t":"Ciências - Aula 14 - Programas e indicadores de saúde pública","id":"n3VqMyk2UF4","p":"centrodemidias"}],"bio:10":[{"t":"Biologia Ensino Médio - Vírus","id":"OZPP6nYD3ds","p":"Centro de Midias Educacionais do Tocantins"}],"fis:0":[{"t":"🔢 GRANDEZAS e UNIDADES de MEDIDA - Matemática - ENCCEJA - [Ensino Médio] - Aula 3","id":"oZQ2qbG-2VU"}],"fis:1":[{"t":"EFB205  - Física I  [EQUILÍBRIO DE FORÇAS]","id":"GgIBAbY61Q4","p":"Instituto Mauá de Tecnologia"}],"fis:2":[{"t":"Aula: Movimento Oblíquo - Projéteis, Funções, Análises e Gráficos","id":"Ryz27nxF9Z8","p":"Rodrigo Fraga da Silva"}],"fis:3":[{"t":"LEIS DE NEWTON | FÍSICA | DESCOMPLICA","id":"wJwDTUL6fz0"}],"fis:4":[{"t":"Movimento  Circular Uniforme","id":"dhJURe2dviE","p":"Saber Física"}],"fis:5":[{"t":"Trabalho, Energia e Potência | Aula completa de Física para Ensino Médio #Física #EnsinoMédio #ENEM","id":"BmxEqQE9nkM","p":"Flávio Cunha"}],"fis:6":[{"t":"LEIS DE KEPLER - Entendendo as Órbitas dos Planetas","id":"sWgUprwZQ2A","p":"Felipe Sampaio - Física"}],"fis:7":[{"t":"🔊 ÓPTICA, ACÚSTICA E ONDULATÓRIA ENEM: Luz, Som, Ondas, Propriedades","id":"QL-QjbzUJPw"}],"fis:8":[{"t":"🛀 HIDROSTÁTICA PARA ENSINO MÉDIO: Empuxo, Densidade, Volume e Pressão! AULA COMPLETA","id":"X7T72lmVl18"}],"fis:9":[{"t":"Temperatura (Medidas, Calor, Dilatação e Dinâmica dos Gases)  - Física | Exatamente Isso!","id":"Qk0cgwwpMNI","p":"Exatamente Isso Videoaulas"}],"fis:10":[{"t":"TERMOLOGIA (Aula 11): Calor - Mudança de estado | Professor Coelho","id":"PoQbZGnhVVE","p":"Professor Coelho"}],"fis:11":[{"t":"Segundo Ano - Ensino Médio - Aula 14: Primeira Lei da Termodinâmica - Transformações particulares","id":"se48d3S8pLY"}],"fis:12":[{"t":"Princípios da ótica geométrica","id":"IBenUrlt-qE","p":"PreparacaoDigital"}],"fis:13":[{"t":"🔌⚡️ ELETRODINÂMICA COMPLETA ENEM: Leis de Ohm, Corrente, Resistor, Associação em SÉRIE e PARALELO","id":"37ZgzVoikCY"}],"fis:14":[{"t":"Introdução ao Magnetismo - Camilla Codeço - 3º ano do Ensino Médio - OBMEP","id":"KST4OGuw_QA","p":"Portal da Física OBMEP"}],"qui:0":[{"t":"SUBSTÂNCIAS E MISTURAS","id":"6boeW9ecFlQ","p":"Professor Luiz"}],"qui:1":[{"t":"ESTRUTURA ATÔMICA | Como é Formado o Átomo?","id":"jPL78QD6hBk","p":"Toda Matéria"}],"qui:2":[{"t":"Tabela Periódica | Introdução | Aula 01","id":"t9lRu46zdEU"}],"qui:3":[{"t":"Exercícios de Ligações Químicas (interatômicas e intermoleculares)","id":"pKlVYA5zuu4"}],"qui:4":[{"t":"Introdução à Estequiometria - Extensivo Química | Descomplica","id":"ceEkPfkcyKM"}],"qui:5":[{"t":"FUNÇÕES INORGÂNICAS | Prof. Thiago Oliveira","id":"uJlDWd28iOc"}],"qui:6":[{"t":"Tipos de dispersões e introdução ao estudo das soluções (Ensino Médio)","id":"DCYux-mkSmA","p":"Prof. Caio - Química"}],"qui:7":[{"t":"TERMOQUÍMICA: aprenda de uma vez por todas (cai muito no ENEM!)","id":"Qr5HFa1NyO0","p":"Toda Matéria"}],"qui:8":[{"t":"AULA 26 (PARTE 1) - Introdução ao Equilíbrio Químico: Uma Perspectiva Termodinâmica e Cinética","id":"BGkEwfU9yu4","p":"YouThermo"}],"qui:9":[{"t":"⚡ TUDO DE ELETROQUÍMICA PARA O ENEM: Oxirredução, NOX, Pilhas e Eletrólise - Mestres do ENEM","id":"9GZl7grKMI4"}],"qui:10":[{"t":"Radioatividade: Histórico e emissões [Módulo 14 - Aula 01]","id":"nDI6lU1rz84","p":"Prof. Marx - Mundo da Química"}],"qui:11":[{"t":"QUÍMICA | ENEM | Funções Orgânicas, Propriedades dos Compostos Orgânicos,  Isomeria Plana e Espacial","id":"QwVXF2nRuH0"}],"qui:12":[{"t":"compostos orgânicos e inorgânicos das células","id":"HcisQtdVVWw","p":"ProfMoa descomplica"}],"qui:13":[{"t":"Química - Aula 27 - Poluição (atmosférica, sonora e visual) e contaminação.","id":"z7a7VsWA4Us","p":"centrodemidias"}],"qui:14":[{"t":"História da Química - Parte 1","id":"30RQApuUeok","p":"Química com G"}],"geo:0":[{"t":"Conceitos de espaço geográfico, região, lugar, território e paisagem​ - Geografia - Ensino Médio","id":"ExJO6rncnwg","p":"Canal Futura"}],"geo:1":[{"t":"CARTOGRAFIA (aula completa) | Ricardo Marcílio","id":"kTuh98rQZeo"}],"geo:2":[{"t":"1ª Série - Geografia - Aula 24 - Globalização e Meio Ambiente","id":"OpK-OktdDXk","p":"Centro de Mídias Educacionais do Acre - CEMEAC"}],"geo:3":[{"t":"Regionalização do Espaço Mundial: Países Desenvolvidos e Subdesenvolvidos | Aula de Geografia","id":"6WBorqDDLg4"}],"geo:4":[{"t":"FGV Ensino Médio | Geografia | Distribuição da população no território brasileiro","id":"VftRQYNyUd8","p":"FGV"}],"geo:5":[{"t":"Em Pauta: A paisagem Cearense: uma leitura geográfica dos aspectos ambientais do Estado do Ceará - G","id":"W8_wfsSk2BI"}],"hist:0":[{"t":"Aula 1 - Introdução à História: O que faz da História uma ciência?","id":"mrwNw0htrXA","p":"Historiando & Cantando "}],"hist:1":[{"t":"Antiguidade Oriental Completa | História Ensino Médio | ENEM e Vestibulares","id":"DMdxpsbn_ek","p":"Top Aulas"}],"hist:2":[{"t":"Aulas para ajudar no ENEM, História aula 1 - Grécia/Roma - parte  1 de 2","id":"8GLPtynyRfc"}],"hist:3":[{"t":"Idade Média: como surgiu o Feudalismo? (Prof. Alexandre)","id":"zyO3xrrnURc"}],"hist:4":[{"t":"DA IDADE MÉDIA À IDADE MODERNA | RESUMO ENEM: HISTÓRIA | DESCOMPLICA","id":"XOKdCV9SsI4"}],"hist:5":[{"t":"Guerra Fria","id":"cAwsLaO4HGQ"}],"hist:6":[{"t":"Brasil Colônia: A História Resumida","id":"p6IxQbme1pI","p":"Toda Matéria"}],"hist:7":[{"t":"BRASIL IMPÉRIO | O que Aconteceu Depois do Grito da Independência?","id":"eERlMeLvQlI"}],"hist:8":[{"t":"Primeira República","id":"sltNTu3GmE0","p":"Descomplica"}],"hist:9":[{"t":"Governo Vargas da Revolução de 30 ao Estado Novo - aula de História para Ensino Médio e Vestibulares","id":"HZbPuGGDayw","p":"Escolha Humanas"}],"hist:10":[{"t":"O POPULISMO NO BRASIL (1945 a 1964) - 9º Ano EF - Unidade 1 do Livro 3","id":"rbs7q_Ey63Y"}],"hist:11":[{"t":"TUDO SOBRE A DITADURA MILITAR (1964-1985) - Débora Aladim","id":"0A8fvJKzhcc"}],"hist:12":[{"t":"Nova República: Governo Sarney - Aula ao Vivo de História | Descomplica","id":"j7cZ1OpIVw4","p":"Descomplica"}],"ing:0":[{"t":"[Inglês] Inferência e Leitura Crítica: Como Interpretar Textos no ENEM!","id":"0yWn_Zn7rcA"}],"ing:1":[{"t":"Parts of Speech in English - Part 1","id":"txKxfYTUPbc"}],"ing:2":[{"t":"Língua Inglesa - Aula 12 - Pronomes Relativos, Conjunções, advérbios, preposições como marcadores","id":"N46pHFfbsHE","p":"centrodemidias"}],"ing:3":[{"t":"Possessive Case - Brasil Escola","id":"d7oPlZIZ5xU"}],"ing:4":[{"t":"RESUMÃO DOS TEMPOS VERBAIS NO INGLÊS | Resumo de Inglês para o Enem","id":"8ts9u6sxwrU"}],"ing:5":[{"t":"Inglês - Usos do Reported Speech (Discurso Indireto)","id":"MfLizeWZCf4"}],"edf:0":[{"t":"Educação Física - Como Surgem as Práticas Corporais","id":"K2Y9mtGwtiQ","p":"Colégio Semeador"}],"edf:1":[{"t":"Educação Física - Práticas corporais de aventura","id":"EcQhf7D5LtI","p":"SeduES"}],"edf:2":[{"t":"Brincadeiras e  jogos populares - Aula de Educação Física (Vídeo Explicativo)","id":"L1gIGnR8veE","p":"Professora Eva"}],"edf:3":[{"t":"Educação Física - Ensino Fundamental e Médio - Ginásticas","id":"MGVo7qSCVxE","p":"SeduES"}],"edf:4":[{"t":"2022 | 3ª Série | Educação Física | Aula N2 - Dança e Expressão Corporal","id":"0NOEH8JCgFI"}],"edf:5":[{"t":"Lutas na Educação Física Escolar","id":"6zIicmHOkMc"}],"edf:6":[{"t":"ATIVIDADE FÍSICA E SAÚDE","id":"2U67CpBheOU","p":"RICARDO SANTA CRUZ"}],"edf:7":[{"t":"AULA 08 - Atividade física e Prevenção de doenças - Educação Física / 1º ano","id":"eJj93ovL0yU"}],"edf:8":[{"t":"COMPONENTES DA APTIDÃO FÍSICA RELACIONADOS À SAÚDE","id":"TInwrno3MTE","p":"Leandro Martins"}],"edf:9":[{"t":"Transtornos Alimentares e da Imagem Corporal [EM 3 Questões]","id":"lFwGHoXUYVI","p":"Concursos Educação Física"}],"edf:10":[{"t":"Saberes e Fazeres Tradicionais Cearenses: conhecendo Danças e Folguedos Ministrante Circe Macena","id":"hmT3Y1yc-OY"}],"edf:11":[{"t":"IX CONCOCE - MESA 2: Políticas Públicas de Educação Física, Esporte e Lazer","id":"Aj-vP7uELDQ"}],"edf:12":[{"t":"PADRÃO DE BELEZA!!!","id":"X-JDHAKjA34"}],"redenem:0":[{"t":"Como tirar total na competência 01 | Corretor, o que você quer de mim?","id":"mMQfDNttVM8"}],"redenem:1":[{"t":"Compreendendo a proposta de redação​ - Redação - Ensino Médio","id":"98yJ_0XrUOs","p":"Canal Futura"}],"redenem:2":[{"t":"Improve your ARGUMENTATION in the Enem 2025 Essay","id":"SgdLXfuDoxg"}],"redenem:3":[{"t":"Aula 14 - Coesão e coerência no Enem: como gabaritar a C4 | Curso de redação para o Enem grátis","id":"HkJGzE3T3lQ","p":"Professor Maikon Souza"}],"redenem:4":[{"t":"Aula Tutoria ENEM - Redação: Elementos da proposta de intervenção","id":"y-wgZM0syaw"}],"artes:0":[{"t":"O Renascimento | História | Ensino Médio","id":"0ty9T_mgTCE","p":"Top Aulas"}],"artes:1":[{"t":"Semana de arte moderna - Literatura - Ensino Médio","id":"n1DBzgaB498"}],"artes:2":[{"t":"17.2 - REVISÃO E CORREÇÃO - ARTE INDÍGENA, AFRICANA E AFRO-BRASILEIRA","id":"sF6ItYOGoFU"}],"artes:3":[{"t":"3ª Série - Arte - Aula 15 - O Papel da Música nas Artes Cênicas: Dança e Teatro","id":"J3n4S49GNQ4","p":"Centro de Mídias Educacionais do Acre - CEMEAC"}],"artes:4":[{"t":"Artes Visuais - Grafite - 5º ano EF","id":"a1Lf7Z_G-p0"}]};
 const bcf=()=>`<button class="btn o n" onclick="go('mats',{t:'sub',id:'${V.id}'})">←</button>`;
-function pct(id){const p=prog(id);return p.tot?Math.round(p.ok/p.tot*100):0}
+function topicProgress(id,i){
+ const questions=exs(id,i),answers=D.ex[id+':'+i]||{};
+ let answered=0,correct=0;
+ questions.forEach((q,k)=>{
+  if(answers[k]===undefined)return;
+  answered++;
+  if(answers[k]==q.c)correct++;
+ });
+ const rate=answered?correct/answered:0;
+ const accuracy=Math.round(100*rate);
+ const mastered=answered>=Math.min(5,questions.length)&&answered>0&&rate>=.8;
+ return {answered,correct,accuracy,mastered,rate};
+}
+function subjectProgress(id,topics){
+ const mastered=topics.filter(t=>t.mastered).length,total=topics.length;
+ return `<div class="mut">${mastered} de ${total} assuntos com bom domínio</div>${progressBar(total?Math.round(100*mastered/total):0,'Domínio em '+mat(id).nome)}`;
+}
+function progressBar(percent,label){
+ return `<progress class="study-progress" value="${percent}" max="100" aria-label="${esc(label)}"></progress>`;
+}
 function hd(id,trail,pill){return`<div class="hd" style="background:${pas(id)};color:${th(id).t}"><div class="row" style="margin-bottom:8px"><button class="btn o n" style="padding:6px 12px" onclick="${V.t=='ass'?`go('mats',{t:'sub',id:'${id}'})`:"go('mats')"}">←</button><b style="flex:1">${esc(trail)}</b></div>${pill?`<div style="text-align:center"><span class="pill" style="background:#fff;color:#2a1520">${pill}</span></div>`:''}</div>`}
 function mats(){
- if(V.t=='sub')return sub();if(V.t=='ass')return ass();
- A.innerHTML=`<h1>Matérias</h1><div class="cols">`+MT.map(m=>{const p=prog(m.id),n=(PG[m.id]||[]).length;return`<div class="card" onclick="go('mats',{t:'sub',id:'${m.id}'})" style="cursor:pointer;border-left:6px solid ${pas(m.id)}"><div class="row">${dot(m.id)}<div><b>${esc(m.nome)}</b><div class="mut">${n} assuntos · ${pct(m.id)}% concluído</div></div></div><div class="bar" style="margin-top:8px"><i style="width:${pct(m.id)}%"></i></div></div>`}).join('')+'</div>'}
-function sub(){const id=V.id,L=PG[id]||[],dc=DC[id]||[];
- A.innerHTML=`<div class="hd" style="background:${pas(id)};color:${th(id).t}"><div class="row" style="margin-bottom:6px"><button class="btn o n" style="padding:6px 12px" onclick="go('mats')">←</button><h1 style="margin:0;color:inherit">${esc(mat(id).nome)}</h1></div><div class="mut" style="color:inherit">${pct(id)}% concluído</div><div class="bar" style="margin:6px 0 10px"><i style="width:${pct(id)}%;background:var(--wine)"></i></div></div>
+ if(V.t=='sub')return sub();
+ if(V.t=='ass')return ass();
+ A.innerHTML=`<h1>Matérias</h1><div class="cols">`+MT.map(m=>{
+  const topics=(PG[m.id]||[]).map((_,i)=>topicProgress(m.id,i));
+  return `<button type="button" class="card subject-progress" onclick="go('mats',{t:'sub',id:'${m.id}'})" style="border-left:6px solid ${pas(m.id)}"><span class="row">${dot(m.id)}<b>${esc(m.nome)}</b></span>${subjectProgress(m.id,topics)}</button>`;
+ }).join('')+'</div>';
+}
+function sub(){
+ const id=V.id,L=PG[id]||[],dc=DC[id]||[],topics=L.map((_,i)=>topicProgress(id,i));
+ A.innerHTML=`<div class="hd" style="background:${pas(id)};color:${th(id).t}"><div class="row"><button class="btn o n" aria-label="Voltar para matérias" onclick="go('mats')">←</button><h1 style="margin:0;color:inherit">${esc(mat(id).nome)}</h1></div></div><section class="card">${subjectProgress(id,topics)}<p class="mut progress-caption">Bom domínio: pelo menos 80% de acertos em 5 questões, ou em todas se houver menos de 5.</p></section>
  ${dc.length?`<details class="card"><summary><b>💡 Como aprender mais fácil</b></summary><ul style="margin:8px 0 0;padding-left:18px">${dc.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`:''}
- <div class="cols">${L.map((t,i)=>{const e=(CT[id]||[])[i],X=e?e.exercicios||[]:[],r=D.ex[id+':'+i]||{},ok=X.filter((q,k)=>r[k]!==undefined&&r[k]==q.c).length,p=X.length?Math.round(ok/X.length*100):0,ab=AB.find(a=>a.w==id&&a.ti==i);return`<div class="card row" onclick="go('mats',{t:'ass',id:'${id}',i:${i},sec:'${e&&e.bank?'ex':'aula'}'})" style="cursor:pointer"><span class="dot" style="background:var(--wine)">${i+1}</span><div><b>${esc(t)}</b><div class="tags">${e?`<span>${X.length} exercícios</span><span>${ok} certos</span>`:'<span>Em breve</span>'}${ab?'<span>1 aberta</span>':''}</div></div><div class="ring n" style="--p:${p};width:42px;height:42px;font-size:11px"><span style="width:32px;height:32px;background:var(--card)">${p}%</span></div></div>`}).join('')}</div>`}
+ <div class="cols">${L.map((t,i)=>{
+  const p=topics[i],e=(CT[id]||[])[i],ab=AB.some(a=>a.w==id&&a.ti==i),hasPractice=exs(id,i).length>0;
+  const status=!p.answered?'Sem respostas':p.mastered?'Bom domínio':p.rate>=.8?'Em prática':'Vale revisar';
+  const action=hasPractice?(p.mastered?'Praticar mais':p.answered&&p.rate<.8&&!e?.bank?'Revisar resumo':'Praticar'):'Abrir assunto';
+  const section=!hasPractice?(e?'aula':ab?'ab':'aula'):action==='Revisar resumo'?'resumo':'ex';
+  return `<article class="card topic-progress"><button type="button" class="topic-title" onclick="go('mats',{t:'ass',id:'${id}',i:${i},sec:'${e?.bank?'ex':'aula'}'})">${esc(t)}</button>
+   <div class="row"><b>${status}</b><span class="mut">${p.answered?p.correct+'/'+p.answered+' acertos · '+p.accuracy+'%':''}</span></div>
+   ${p.answered?progressBar(p.accuracy,'Acertos em '+t):''}
+   <button type="button" class="btn o" onclick="go('mats',{t:'ass',id:'${id}',i:${i},sec:'${section}'})">${action}</button></article>`;
+ }).join('')}</div>`;
+}
 const lead=p=>{p=String(p);const m=p.match(/^([\s\S]{25,}?[.!?])\s+(?=[A-ZÀ-Ú"“(])/);if(!m)return[p,''];if(/(\b[A-Za-z]|a\.C|d\.C|Dra?|Sra?|Prof|séc|etc|ex|Ex)\.$/.test(m[1]))return[p,''];return[m[1],p.slice(m[0].length)]};
-function ass(){const{id,i}=V,e=(CT[id]||[])[i],t=(PG[id]||[])[i],ab=AB.find(a=>a.w==id&&a.ti==i)||(D.genab||{})[id+':'+i],im=IM[id+':'+i];
+function ass(){
+ drawStudy();
+ const {id,i,sec,q}=V;
+ if(!PG[id]?.[i])return;
+ const last={id,i,sec,q:Number.isInteger(q)&&q>=0?q:undefined};
+ if(JSON.stringify(last)!==JSON.stringify(D.last)){D.last=last;save()}
+}
+function drawStudy(){const{id,i}=V,e=(CT[id]||[])[i],t=(PG[id]||[])[i],ab=AB.find(a=>a.w==id&&a.ti==i)||(D.genab||{})[id+':'+i],im=IM[id+':'+i];
  if(!e&&!ab){A.innerHTML=hd(id,mat(id).nome+' • '+t)+'<div class="card">Ainda não há aula para este assunto.</div>';return}
  const secs=[...(e?.bank?[]:[['vid','Assistir à aula'],['aula','Ler a teoria']]),['ex','Praticar'],['resumo','Resumo'],['aud','Áudio']];secs.push(ab?['ab','Questão aberta']:['gd','Modo guiado']);
  if(V.sec=='ab'&&V.rv&&ab)return resol(ab,id,i,t);
@@ -392,10 +480,88 @@ function resol(a,id,i,t){let cr=a.criterios;cr=Array.isArray(cr)?cr:String(cr||'
  ${cr.length?`<div class="card"><h2>O que a sua resposta deve conter</h2>${cr.map(x=>`<div class="ck"><span>✔</span>${esc(x)}</div>`).join('')}</div>`:''}
  <div class="row"><button class="btn o" onclick="V.rv=0;ass()">Refazer</button><button class="btn" onclick="nextAb(this,'${id}',${i},'${esc(t).replace(/'/g,'’')}')">Próxima questão</button></div><div style="text-align:center;margin-top:8px"><a href="#" class="mut" onclick="${nx?`go('mats',{t:'ass',id:'${id}',i:${i+1},sec:'aula'})`:`go('mats',{t:'sub',id:'${id}'})`};return false">Ir para o próximo assunto</a></div>`}
 /* ---------- PROVAS ---------- */
+const ENEM_PDF='https://download.inep.gov.br/enem/provas_e_gabaritos/';
+function enemUrl(year,day,kind){
+ return `${ENEM_PDF}${year}_${kind}_impresso_D${day}_CD${day===1?1:7}.pdf`;
+}
+function enemStart(year,day){
+ const lang=day===1?$('#enem-lang').value:'';
+ D.enemRun={year,day,lang,answers:{},until:Date.now()+(day===1?330:300)*60000};
+ if(!save())alert('O navegador não conseguiu guardar o simulado.');
+ go('prov',{enem:true});
+}
+function enemExam(){
+ const a=D.enemRun;
+ if(!a)return go('prov');
+ if(!a.finished&&Date.now()>=a.until){a.finished=true;save()}
+ const start=a.day===1?1:91;
+ A.innerHTML=`<button class="btn o" onclick="go('prov')">Voltar às provas</button><h1>ENEM ${a.year} · ${a.day}º dia</h1>
+ <div class="card"><div class="row"><a class="btn o" href="${enemUrl(a.year,a.day,'PV')}" target="_blank" rel="noopener">Abrir caderno oficial</a><b id="enem-clock">${fmt(Math.max(0,Math.ceil((a.until-Date.now())/1000)))}</b></div>
+ ${a.lang?`<p class="mut">Língua escolhida: ${a.lang==='en'?'Inglês':'Espanhol'}. Siga a seção correspondente do caderno.</p>`:''}</div>
+ ${a.finished?enemCorrection(a):`<div class="card"><h2>Cartão-resposta</h2><div class="enem-sheet">${Array.from({length:90},(_,i)=>{const n=start+i;return `<label>Questão ${n}<select data-enem-question onchange="enemAnswer(${n},this.value)"><option value="">—</option>${[...'ABCDE'].map(x=>`<option ${a.answers[n]===x?'selected':''}>${x}</option>`).join('')}</select></label>`;}).join('')}</div></div>
+ <button class="btn w" onclick="if(confirm('Encerrar e corrigir este simulado?'))finishEnem()">Encerrar simulado</button>`}`;
+ if(!a.finished)tm=setInterval(()=>{
+  const left=Math.max(0,Math.ceil((a.until-Date.now())/1000));
+  $('#enem-clock').textContent=fmt(left);
+  if(!left)finishEnem();
+ },1000);
+}
+function enemAnswer(n,value){
+ const a=D.enemRun;
+ if(a.finished||Date.now()>=a.until)return finishEnem();
+ if(value)a.answers[n]=value;else delete a.answers[n];
+ save();
+}
+function finishEnem(){
+ D.enemRun.finished=true;save();clr();enemExam();
+}
+function enemCorrection(a){
+ const areas=a.day===1?['Linguagens','Ciências Humanas']:['Ciências da Natureza','Matemática'];
+ const results=a.score?`<p><b>${a.score.map((v,i)=>`${areas[i]}: ${v[0]}/${v[1]}`).join(' · ')}</b></p>`:'';
+ return `<div class="card"><h2>Conferir resultado</h2><a class="btn o" target="_blank" rel="noopener" href="${enemUrl(a.year,a.day,'GB')}">Abrir gabarito oficial</a>
+ <p>Digite as 90 letras na ordem do caderno, incluindo apenas a língua escolhida no 1º dia. Use X para questão anulada.</p>
+ <textarea id="enem-key" aria-label="Gabarito oficial" placeholder="A B C D E ..."></textarea><button class="btn" onclick="gradeEnem()">Calcular acertos</button><p class="mut" id="enem-feedback" role="status"></p>${results}</div>`;
+}
+function gradeEnem(){
+ const a=D.enemRun,input=$('#enem-key').value.toUpperCase().replace(/[\s,;]+/g,'');
+ if(!/^[A-EX]{90}$/.test(input)){
+  $('#enem-feedback').textContent='Informe exatamente 90 letras, de A a E ou X.';
+  return;
+ }
+ const start=a.day===1?1:91,score=[[0,0],[0,0]];
+ [...input].forEach((key,i)=>{
+  if(key==='X')return;
+  const area=score[Math.floor(i/45)];area[1]++;
+  if(a.answers[start+i]===key)area[0]++;
+ });
+ a.score=score;save();enemExam();
+}
+function enemPapers(){
+ return Array.from({length:7},(_,i)=>{
+  const year=2026-i;
+  return `<details class="card enem-year"><summary><b>ENEM ${year}</b></summary>
+   ${[1,2].map(day=>{
+    const code=`impresso_D${day}_CD${day===1?1:7}.pdf`;
+    return `<div class="enem-day"><b>${day}º dia</b><div class="row">
+     <a class="btn" target="_blank" rel="noopener" href="${ENEM_PDF}${year}_PV_${code}">Abrir prova</a>
+     <a class="btn o" target="_blank" rel="noopener" href="${ENEM_PDF}${year}_GB_${code}">Ver gabarito</a><button class="btn o" onclick="go('prov',{setup:[${year},${day}]})">Fazer simulado</button>
+    </div></div>`;
+   }).join('')}</details>`;
+ }).join('');
+}
 function prov(){
  if(S&&S.fin)return result();if(S)return sim();
  if(V.book!=null)return caderno();
- A.innerHTML=`<h1>Provas</h1>`+PV.map((p,i)=>`<div class="card"><h2>${esc(p.nome)}</h2><p class="mut">${p.questoes} questões · ${Math.round(p.tempo_min/60)} h · ${p.materias.length} matérias${(D.sims[p.id]||{}).hit!==undefined?` · último: ${D.sims[p.id].hit} acertos`:''}</p>${p.lingua?`<label class="mut">Língua estrangeira (questões 78 a 85)</label><select id="lg${i}"><option value="">Inglês</option><option value="espanhol">Espanhol</option><option value="frances">Francês</option></select><div style="height:10px"></div>`:''}<div class="row"><button class="btn" onclick="startS(${i})">Iniciar simulado</button><button class="btn o" onclick="go('prov',{book:${i},page:1})">Abrir caderno</button></div></div>`).join('')+`<div class="card mut">Outras provas (ENEM 2024/2025 e UECE anteriores) ainda não têm as páginas no repositório.</div>`}
+ if(V.enem)return enemExam();
+ if(V.setup){
+  const [year,day]=V.setup;
+  A.innerHTML=`<button class="btn o" onclick="go('prov')">Voltar às provas</button><h1>ENEM ${year} · ${day}º dia</h1><div class="card"><p>90 questões · ${day===1?'5 h 30 min':'5 h'}</p>
+   ${day===1?'<label>Língua estrangeira<select id="enem-lang"><option value="en">Inglês</option><option value="es">Espanhol</option></select></label>':''}
+   <p>Leia o caderno oficial e marque as letras no cartão-resposta do app.</p>
+   <button class="btn" onclick="if(!D.enemRun||confirm('Substituir o simulado ENEM salvo?'))enemStart(${year},${day})">Iniciar simulado</button></div>`;
+  return;
+ }
+ A.innerHTML=`<h1>Provas</h1>`+PV.map((p,i)=>`<div class="card"><h2>${esc(p.nome)}</h2><p class="mut">${p.questoes} questões · ${Math.round(p.tempo_min/60)} h · ${p.materias.length} matérias${(D.sims[p.id]||{}).hit!==undefined?` · último: ${D.sims[p.id].hit} acertos`:''}</p>${p.lingua?`<label class="mut">Língua estrangeira (questões 78 a 85)</label><select id="lg${i}"><option value="">Inglês</option><option value="espanhol">Espanhol</option><option value="frances">Francês</option></select><div style="height:10px"></div>`:''}<div class="row"><button class="btn" onclick="startS(${i})">Iniciar simulado</button><button class="btn o" onclick="go('prov',{book:${i},page:1})">Abrir caderno</button></div></div>`).join('')+`<h2 class="enem-heading">ENEM · 2020 a 2026</h2><p class="mut">Cadernos e gabaritos oficiais da aplicação regular, em PDF.</p>${D.enemRun?`<button class="btn o" onclick="go('prov',{enem:true})">${D.enemRun.finished?'Ver último simulado':'Retomar simulado'} ENEM</button>`:''}`+enemPapers()}
 function caderno(){
  const p=PV[V.book],pages=PGS[p.id],page=V.page;
  A.innerHTML=`<button class="btn o" onclick="go('prov')">Voltar às provas</button><h1>${esc(p.nome)}</h1>
@@ -454,8 +620,30 @@ function rcard(ex,r){const en=ex=='enem',max=en?200:2.5,L=r.criterios||[],list=(
 function salvarProgresso(){
  $('#progress-status').textContent=save()?'Progresso salvo neste navegador.':'Não foi possível salvar. Confira se o navegador permite armazenar dados.';
 }
+function exportProgress(){
+ const url=URL.createObjectURL(new Blob([JSON.stringify({app:'cantinho-da-agatha',version:1,progress:D})],{type:'application/json'}));
+ const a=document.createElement('a');a.href=url;a.download='cantinho-progresso-'+today()+'.json';a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+async function importProgress(input){
+ const file=input.files[0];input.value='';
+ if(!file)return;
+ try{
+  if(file.size>6000000)throw 0;
+  const {app,version,progress}=JSON.parse(await file.text());
+  const record=x=>x&&typeof x==='object'&&!Array.isArray(x);
+  if(app!=='cantinho-da-agatha'||version!==1||!record(progress)||typeof progress.name!=='string'||
+   typeof progress.exam!=='string'||!/^\d{4}-\d{2}-\d{2}$|^$/.test(progress.exam)||
+   !Number.isFinite(progress.foc)||!['ex','ab','days','plano','sims'].every(k=>record(progress[k]))||
+   !Object.values(progress.ex).every(record))throw 0;
+  if(!confirm('Substituir o progresso deste navegador pelo backup?'))return;
+  const prev=D;D=progress;
+  if(!save()){D=prev;throw 0}
+  per();$('#progress-status').textContent='Backup restaurado.';
+ }catch(e){$('#progress-status').textContent='Não foi possível importar esse backup.'}
+}
 function per(){let ex=0;Object.values(D.ex).forEach(r=>ex+=Object.keys(r).length);
- A.innerHTML=`<h1>Perfil</h1><div class="card"><label class="mut">Seu nome</label><input value="${esc(D.name)}" oninput="D.name=this.value;save()"><label class="mut" style="display:block;margin-top:10px">Data da prova</label><input type="date" value="${D.exam}" oninput="D.exam=this.value;save()"></div><div class="card"><div>Exercícios respondidos: <b>${ex}</b></div><div>Dias estudados: <b>${Object.keys(D.days).length}</b></div><div>Minutos em foco: <b>${D.foc}</b></div></div><div class="card"><button type="button" class="btn w" onclick="salvarProgresso()">Salvar progresso</button><p class="mut" id="progress-status" role="status">O progresso é salvo automaticamente neste navegador.</p></div><button class="btn o w" style="margin-bottom:10px" onclick="tgl()">Alternar modo escuro / claro</button>${window.__PWA&&!matchMedia('(display-mode: standalone)').matches?`<button class="btn w" style="margin-bottom:10px" onclick="instalar()">📲 Instalar como app</button>`:''}<button class="btn o w" onclick="if(confirm('Apagar todo o progresso?')){D.ex={};D.ab={};D.days={};D.foc=0;D.plano={};D.sims={};D.essay='';save();render()}">Zerar progresso</button>`}
+ A.innerHTML=`<h1>Perfil</h1><div class="card"><label class="mut">Seu nome</label><input value="${esc(D.name)}" oninput="D.name=this.value;save()"><label class="mut" style="display:block;margin-top:10px">Data da prova</label><input type="date" value="${D.exam}" oninput="D.exam=this.value;save()"></div><div class="card"><div>Exercícios respondidos: <b>${ex}</b></div><div>Dias estudados: <b>${Object.keys(D.days).length}</b></div><div>Minutos em foco: <b>${D.foc}</b></div></div><div class="card"><button type="button" class="btn w" onclick="salvarProgresso()">Salvar progresso</button><p class="mut" id="progress-status" role="status">O progresso é salvo automaticamente neste navegador.</p><div class="row" style="margin-top:10px"><button type="button" class="btn o" onclick="exportProgress()">Exportar backup</button><button type="button" class="btn o" onclick="$('#backup-input').click()">Importar backup</button><input id="backup-input" type="file" accept=".json,application/json" hidden onchange="importProgress(this)"></div></div><button class="btn o w" style="margin-bottom:10px" onclick="tgl()">Alternar modo escuro / claro</button>${window.__PWA&&!matchMedia('(display-mode: standalone)').matches?`<button class="btn w" style="margin-bottom:10px" onclick="instalar()">📲 Instalar como app</button>`:''}<button class="btn o w" onclick="if(confirm('Apagar todo o progresso?')){D.ex={};D.ab={};D.days={};D.foc=0;D.plano={};D.sims={};D.essay='';save();render()}">Zerar progresso</button>`}
 function cleanGen(){let ch=0;for(const key in (D.gen||{})){const[id,i]=key.split(':'),base=((CT[id]||[])[i]||{}).exercicios||[],keep=[],rm=[];D.gen[key].forEach((q,j)=>{if(isDup(q,base.concat(keep)))rm.push(base.length+j);else keep.push(q)});
  if(rm.length){ch=1;D.gen[key]=keep;const sh=kk=>kk-rm.filter(x=>x<kk).length,m=o=>{const n={};for(const k in o){if(rm.includes(+k))continue;n[sh(+k)]=o[k]}return n};if(D.ex&&D.ex[key])D.ex[key]=m(D.ex[key]);['svg','rz'].forEach(f=>{if(!D[f])return;const n={};for(const k in D[f]){if(!k.startsWith(key+':')){n[k]=D[f][k];continue}const kk=+k.slice(key.length+1);if(rm.includes(kk))continue;n[key+':'+sh(kk)]=D[f][k]}D[f]=n})}}
  if(ch)save()}
