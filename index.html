@@ -123,7 +123,10 @@ setTimeout(()=>{$('#tg').textContent=TM=='dark'?'☀️':'🌙'});
 let tab='home',V={},tm=null,F={t:1500,run:0},S=null;
 const clr=()=>{clearInterval(tm);tm=null};
 function fx(){const a=$('#app');a.classList.remove('enter');void a.offsetWidth;a.classList.add('enter');clearTimeout(fx.t);fx.t=setTimeout(()=>a.classList.remove('enter'),170)}
-function go(t,v){clr();tab=t;V=v||{};S=null;fx();render();scrollTo(0,0)}
+function go(t,v){
+ if(S&&!S.fin&&!confirm('Sair do simulado? As respostas desta tentativa serão descartadas.'))return;
+ clr();tab=t;V=v||{};S=null;fx();render();scrollTo(0,0)
+}
 document.addEventListener('click',e=>{if(navigator.vibrate&&e.target.closest&&e.target.closest('button,.btn,.opt,.pill,a.btn,label.btn'))try{navigator.vibrate(8)}catch(x){}},true);
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();window.__ip=e});
 function instalar(){if(window.__ip){window.__ip.prompt();window.__ip=null}else alert('No iPhone: toque em Compartilhar e depois em "Adicionar à Tela de Início". No Android: menu ⋮ e depois "Instalar app".')}
@@ -345,7 +348,7 @@ function caderno(){
 function startS(i){const p=PV[i],lg=($('#lg'+i)||{}).value||'';S={i,p,lg,n:1,r:{},t:p.tempo_min*60};tm=setInterval(()=>{S.t--;const e=$('#st');if(e)e.textContent=fmt(S.t);if(S.t<=0)fin()},1000);render()}
 function pgOf(n){const p=S.p;return(S.lg&&p.q2p_lingua&&p.q2p_lingua[S.lg]&&p.q2p_lingua[S.lg][n])||p.q2p[n]}
 function sim(){const p=S.p,n=S.n,pg=pgOf(n),img=PGS[p.id][pg-1],mt=p.materias.find(m=>n>=m.de&&n<=m.ate);
- A.innerHTML=`<div class="row" style="margin-bottom:8px"><button class="btn o n" onclick="if(confirm('Sair do simulado?')){clr();S=null;render()}">Sair do simulado</button><b>Questão ${n} de ${p.questoes}</b><span class="pill n" id="st">${fmt(S.t)}</span></div><div class="bar" style="margin-bottom:8px"><i style="width:${n/p.questoes*100}%;background:var(--wine)"></i></div><div class="mut" style="margin-bottom:6px">${mt?esc(mt.nome):''} · página ${pg}</div>
+ A.innerHTML=`<div class="row" style="margin-bottom:8px"><button class="btn o n" onclick="go('prov')">Sair do simulado</button><b>Questão ${n} de ${p.questoes}</b><span class="pill n" id="st">${fmt(S.t)}</span></div><div class="bar" style="margin-bottom:8px"><i style="width:${n/p.questoes*100}%;background:var(--wine)"></i></div><div class="mut" style="margin-bottom:6px">${mt?esc(mt.nome):''} · página ${pg}</div>
  <div class="pg"><img src="${img}" alt="Página ${pg} da prova"></div><button class="btn o w" style="margin-bottom:10px" onclick="ov(${pg})">Ampliar página</button>
  <div class="row" style="margin-bottom:10px">${'ABCD'.split('').map(l=>`<button class="opt ${S.r[n]==l?'sel':''}" style="margin:0;text-align:center" onclick="S.r[${n}]='${l}';sim()">${l}</button>`).join('')}</div>
  <div class="row"><button class="btn o" ${n>1?'':'disabled'} onclick="S.n--;sim()">Anterior</button><button class="btn" onclick="${n<p.questoes?'S.n++;sim()':'if(confirm(\'Finalizar o simulado?\'))fin()'}">${n<p.questoes?'Próxima':'Finalizar'}</button></div>
@@ -375,7 +378,7 @@ function red(){D.es=D.es||{};const ex=V.ex||'enem',L=TEM[ex],ti=D.es[ex+'_t']||0
 `;rc()}
 function rc(){const ex=V.ex||'enem',t=(D.es||{})[ex]||'',w=wc(t),e=$('#rcn');if(e)e.textContent=w+' palavras · ≈ '+Math.ceil(w/10)+' linhas · '+(t.split(/\n+/).filter(x=>x.trim()).length)+' parágrafos';save()}
 const ENC=['Domínio da norma culta','Compreensão do tema e do gênero','Seleção e organização de argumentos','Coesão e mecanismos linguísticos','Proposta de intervenção'];
-async function corrige(ex){const s=await smp();if(!s){alert('A correção por IA só funciona na página publicada dentro do Claude.');return}
+async function corrige(ex){const s=await smp();if(!s){alert('A correção por IA está indisponível no momento. Seu texto continua salvo neste aparelho. Tente novamente mais tarde.');return}
  const tx=(D.es[ex]||'').trim(),ti=D.es[ex+'_t']||0,tema=TEM[ex][ti][0];if(wc(tx)<60){alert('Escreva pelo menos uns 60 palavras para poder corrigir.');return}
  const b=$('#cb');b.disabled=true;b.textContent='Corrigindo…';
  const base=`Você é um corretor de redação de vestibular extremamente RIGOROSO e imparcial. Não infle notas: a maioria dos textos de estudantes fica em faixa média; notas máximas são raras e exigem texto praticamente impecável. Seja específico, cite trechos curtos do texto do aluno e diga exatamente como corrigir. Tema: "${tema}". Texto do aluno:\n"""\n${tx}\n"""\n`;
