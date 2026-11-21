@@ -201,7 +201,7 @@ function ass(){const{id,i}=V,e=(CT[id]||[])[i],t=(PG[id]||[])[i],ab=AB.find(a=>a
  if(V.sec=='aud')b+=aud(e,id,i,t);
  if(V.sec=='ex')b+=exer(e,id,i,t);
  if(V.sec=='gd')b+=guiado(e,id,i,t);
- if(V.sec=='ab')b+=(ab?aberta(ab,AB.includes(ab)?im:null,AB.includes(ab)?cap:''):'<div class="card">Este assunto ainda não tem questão aberta.</div>')+`<button class="btn o w" id="gab" style="margin-top:12px" onclick="genAb('${id}',${i},'${esc(t).replace(/'/g,'’')}')">✨ Gerar questão aberta com IA</button>`;
+ if(V.sec=='ab')b+=(ab?aberta(ab):'<div class="card">Este assunto ainda não tem questão aberta.</div>')+`<button class="btn o w" id="gab" style="margin-top:12px" onclick="genAb('${id}',${i},'${esc(t).replace(/'/g,'’')}')">✨ Gerar questão aberta com IA</button>`;
  A.innerHTML=b}
 async function moreEx(id,i,t,nv){const key=id+':'+i,have=exs(id,i),n=have.length;D.gen=D.gen||{};const s=await smp();
  if(s){try{const r=await s.json(`Crie 3 questões NOVAS de múltipla escolha (4 alternativas) de vestibular sobre "${t}" (${mat(id).nome}), DIFERENTES destas: ${have.slice(-8).map(x=>x.q.slice(0,70)).join(' | ')}. ${LVP(nv)} Confira cada gabarito duas vezes.${SVGP} Responda SOMENTE um array JSON: [{"q":"","a":["","","",""],"c":0,"res":"","nivel":"Fácil|Médio|Difícil|Prova"}] (c = índice 0 a 3 da certa; varie a posição).`,{cache:false});
@@ -253,8 +253,16 @@ function exer(e,id,i,t){const X=exs(id,i),nv=NV(),gb=`<button class="btn o w" id
  b+=c?`<div class="row"><button class="btn o" onclick="delete D.ex['${key}'][${k}];save();V.pk=undefined;ass()">Refazer</button><button class="btn" onclick="${last?`nextEx(this,'${id}',${i})`:`V.q=${L[pos+1]};V.pk=undefined;fx();ass()`}">Próxima questão</button></div><div style="text-align:center;margin-top:8px"><a href="#" class="mut" onclick="${i<(PG[id]||[]).length-1?`go('mats',{t:'ass',id:'${id}',i:${i+1},sec:'aula'})`:`go('mats',{t:'sub',id:'${id}'})`};return false">Ir para o próximo assunto</a></div>`:`<div class="row"><button class="btn o" ${pos?'':'disabled'} onclick="V.q=${L[Math.max(0,pos-1)]};V.pk=undefined;ass()">Anterior</button><button class="btn" ${pick===undefined?'disabled':''} onclick="conf('${key}',${k},${pick})">Confirmar</button></div>`;
  return b+gb}
 function conf(key,k,j){D.ex[key]=D.ex[key]||{};D.ex[key][k]=j;D.days[today()]=1;save();ass()}
-function aberta(a,im,cap){const v=D.ab[a.id]||'';
- return`<div style="margin-bottom:8px">${badge(abLv(a))}</div><div class="card">${im?`<img class="q" src="${im.s}" alt="${esc(im.alt)}">${cap}`:''}${a.texto?`<div style="white-space:pre-line;font-style:italic;margin-bottom:8px">${esc(a.texto)}</div>`:''}<div class="clamp"><b>${esc(a.q)}</b></div></div>
+const OPEN_FIGURES=new Set(['port','filo','socio','mat','bio','qui','hist','ing','edf','artes']);
+function openFigure(a){
+ if(!(AB.includes(a)||a.sourceQuestion)||!OPEN_FIGURES.has(a.w))return '';
+ const image=IM['open:'+a.w];
+ if(!image)return '';
+ const credit=[image.c,image.l].filter(Boolean).map(esc).join(' · ');
+ return `<img class="q" src="${image.s}" alt="${esc(image.alt)}"><div class="cr">${esc(image.alt)}${credit?' · '+credit:''}</div>`;
+}
+function aberta(a){const v=D.ab[a.id]||'';
+ return`<div style="margin-bottom:8px">${badge(abLv(a))}</div><div class="card">${openFigure(a)}${a.texto?`<div style="white-space:pre-line;font-style:italic;margin-bottom:8px">${esc(a.texto)}</div>`:''}<div class="clamp"><b>${esc(a.q)}</b></div></div>
  <div class="mut" style="margin:0 0 4px"><b>Sua resposta</b></div><div class="ta"><textarea id="ta" oninput="D.ab['${a.id}']=this.value;$('#wc').textContent=wc(this.value)+' palavras'" placeholder="Escreva com suas próprias palavras">${esc(v)}</textarea><span class="wc" id="wc">${wc(v)} palavras</span><button class="mic" id="mic" onclick="mic()" title="Para responder por voz">🎤</button></div><div class="mut" style="text-align:right;margin:2px 0 10px">Para responder por voz</div>
  <div class="row"><button class="btn o" onclick="V.rv=1;ass()">Ver resolução</button><button class="btn" onclick="D.days[today()]=1;save();V.rv=1;ass()">Salvar resposta</button></div>`}
 let REC=null,DICT=null;try{window.claude&&claude.use&&claude.use('dictation').then(d=>{DICT=d}).catch(()=>{})}catch(e){}
@@ -313,7 +321,7 @@ function practiceFromBank(id,i,nv,reason){
 async function genAb(id,i,t,btn,silent){const s=await smp();if(!s){if(!silent)alert('A geração por IA só funciona na página publicada dentro do Claude.');return false}const b=btn||$('#gab');if(b){b.disabled=true;b.textContent='Gerando…'}
  try{const r=await s.json(`Crie 1 questão ABERTA (discursiva) NOVA${NV()?' de nível '+NV()+' ('+DEF[NV()]+')':''}, diferente de "${(((D.genab||{})[id+':'+i]||AB.find(a=>a.w==id&&a.ti==i)||{}).q||'').slice(0,80)}", de vestibular sobre "${t}" (${mat(id).nome}), enunciado de no máximo 3 linhas. Responda SOMENTE um objeto JSON: {"q":"enunciado","passos":["3 a 5 passos da resolução"],"criterios":["3 a 4 itens curtos do que a resposta deve conter"],"modelo":"resposta-modelo de 3 a 5 linhas"}`,{modelTier:'complex',cache:false});
   if(!r||!r.q)throw 0;D.genab=D.genab||{};D.genab[id+':'+i]=Object.assign({id:'g:'+id+':'+i+':'+Date.now(),ia:1},r,{nv:NV()||'Médio'});save();V.rv=0;ass();return true}catch(x){if(!silent)alert('Não consegui gerar agora.');if(b){b.disabled=false;b.textContent=btn?'Próxima questão':'✨ Gerar questão aberta com IA'}return false}}
-async function nextAb(b,id,i,t){b.disabled=true;b.textContent='Carregando…';if(await genAb(id,i,t,b,1))return;const key=id+':'+i,cur=((D.genab||{})[key]||AB.find(a=>a.w==id&&a.ti==i)||{}).q,o=AB.filter(a=>a.w==id&&a.q!=cur).sort(()=>Math.random()-.5)[0];if(!o){alert('Não há outra questão aberta disponível agora.');b.disabled=false;b.textContent='Próxima questão';return}D.genab=D.genab||{};D.genab[key]=Object.assign({},o,{id:'g2:'+key+':'+Date.now()});save();V.rv=0;ass()}
+async function nextAb(b,id,i,t){b.disabled=true;b.textContent='Carregando…';if(await genAb(id,i,t,b,1))return;const key=id+':'+i,cur=((D.genab||{})[key]||AB.find(a=>a.w==id&&a.ti==i)||{}).q,o=AB.filter(a=>a.w==id&&a.q!=cur).sort(()=>Math.random()-.5)[0];if(!o){alert('Não há outra questão aberta disponível agora.');b.disabled=false;b.textContent='Próxima questão';return}D.genab=D.genab||{};D.genab[key]=Object.assign({},o,{id:'g2:'+key+':'+Date.now(),sourceQuestion:o.id});save();V.rv=0;ass()}
 /* áudio + autoavaliação */
 let AU={on:0,rate:1};
 function aud(e,id,i,t){const R=e.resumo||[],key=id+':'+i,txt=t+'. '+R.join('. '),min=Math.max(1,Math.round(txt.split(/\s+/).length/150/AU.rate)),s=(D.sum||{})[key]||'',r=V.ev;
