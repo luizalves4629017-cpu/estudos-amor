@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+.vercel
+node_modules
+.DS_Store
