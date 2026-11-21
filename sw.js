@@ -1,5 +1,5 @@
 // Service worker: o app abre mesmo sem internet e se atualiza sozinho quando há versão nova.
-const V = 'estudos-v15';
+const V = 'estudos-v16';
 const ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/icon-192.png?v=2', '/icon-512.png?v=2', '/icon-maskable-512.png?v=2', '/apple-touch-icon.png?v=2', '/toque-abertura.wav'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(V).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
