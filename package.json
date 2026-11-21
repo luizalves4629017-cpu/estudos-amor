@@ -1,0 +1,7 @@
+{
+  "name": "estudos-uece",
+  "version": "1.0.0",
+  "private": true,
+  "description": "App de estudos para a UECE (página estática + função de IA na Vercel)",
+  "engines": { "node": ">=18" }
+}
