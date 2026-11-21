@@ -29,3 +29,12 @@ Troque o `index.html` pela versão nova, depois: `git add . && git commit -m "At
 - Sem `ACCESS_CODE`, qualquer pessoa com o link pode gastar a sua cota de IA.
 - O progresso do aluno fica salvo no navegador de cada aparelho (não sincroniza entre aparelhos).
 - Sem a API configurada, o app funciona normalmente, mas os botões de IA avisam que não conseguiram gerar.
+
+## Instalar como aplicativo (PWA)
+O projeto já é um PWA: depois de publicado, abra o link no celular.
+- **Android (Chrome):** menu ⋮ > *Instalar app* (ou o botão "📲 Instalar como app" no Perfil).
+- **iPhone (Safari):** botão Compartilhar > *Adicionar à Tela de Início*.
+O app abre em tela cheia, com ícone próprio, funciona sem internet (depois da primeira abertura) e se atualiza sozinho a cada `git push`.
+
+## Loja de aplicativos (opcional)
+Para publicar na Google Play, dá para empacotar este mesmo site com o PWABuilder (pwabuilder.com) ou com o Capacitor. Exige conta de desenvolvedor (Google Play: taxa única; Apple: anual, e precisa de Mac).

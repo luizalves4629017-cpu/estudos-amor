@@ -2,6 +2,14 @@
 <html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Estudos UECE</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#6B2145">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Estudos">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script>window.__PWA=1</script>
 <style>
 :root{--bg:#F7F6F9;--card:#fff;--ink:#2a1520;--mut:#8a6f7a;--wine:#6b1f45;--pink:#e8b4b8;--soft:#f6dfe3;--ok:#2f9e5f;color-scheme:light;--bad:#e5604d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box}html,body{margin:0;height:100%}
@@ -66,6 +74,17 @@ details summary{cursor:pointer;color:var(--mut);font-size:14px;margin-top:4px}.v
 .fb{border-radius:16px;padding:16px;text-align:center;margin:12px 0;font-size:20px}.okb{background:#d7f0e0;color:#14532d}.badb{background:#fbd5d2;color:#7a1f14}.fi{width:44px;height:44px;border-radius:50%;margin:0 auto 4px;display:grid;place-items:center;background:#fff9;font-size:22px}
 .ban{position:relative;height:84px;border-radius:12px;margin-bottom:12px;overflow:hidden;display:grid;place-items:center}.ban span{font-size:44px;position:relative}.ban i{position:absolute;top:-20px;width:80px;height:80px;border-radius:50%;background:#fff3}
 .nv{display:inline-block;border-radius:999px;padding:3px 12px;font-size:13px;font-weight:700;vertical-align:middle}.nv-f{background:#d7f0e0;color:#14532d}.nv-m{background:#fff0c2;color:#6b4a00}.nv-d{background:#fbd5d2;color:#7a1f14}.nv-p{background:#e5d4f5;color:#4a1d6e}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent}
+button,.btn,.opt,.pill,a.btn,label.btn{touch-action:manipulation;-webkit-user-select:none;user-select:none;transition:transform .15s ease,background-color .25s ease,border-color .25s ease,box-shadow .25s ease,opacity .2s}
+.card{transition:transform .2s ease,box-shadow .2s ease}.bar i{transition:width .6s cubic-bezier(.3,.8,.3,1)}
+@media(hover:hover){.btn:hover{box-shadow:0 4px 14px #6b214540;transform:translateY(-1px)}.card[onclick]:hover,.sub:hover{transform:translateY(-2px);box-shadow:0 6px 18px #0002}.opt.alt:not(:disabled):hover{border-color:var(--wine)}}
+.btn:active,.opt:active,.pill:active,nav button:active,.sub:active,.card[onclick]:active{transform:scale(.97)}
+@keyframes enter{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+#app.enter>*{animation:enter .35s cubic-bezier(.2,.8,.2,1) both}#app.enter>*:nth-child(2){animation-delay:.04s}#app.enter>*:nth-child(3){animation-delay:.08s}#app.enter>*:nth-child(n+4){animation-delay:.12s}
+@keyframes pop{0%{transform:scale(.92);opacity:0}60%{transform:scale(1.03)}100%{transform:scale(1);opacity:1}}
+.fb{animation:pop .4s ease both}.opt.sel i,.opt.ok i,.opt.bad i{animation:pop .3s ease both}
+nav button{transition:color .2s,transform .15s}nav button.on{transform:translateY(-2px)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style></head><body><div id="app"></div>
 <button id="tg" onclick="tgl()" title="Modo escuro">🌙</button><nav><div id="nav"></div></nav>
 <script>
@@ -100,7 +119,11 @@ function tgl(){TM=TM=='dark'?'light':'dark';document.documentElement.dataset.the
 setTimeout(()=>{$('#tg').textContent=TM=='dark'?'☀️':'🌙'});
 let tab='home',V={},tm=null,F={t:1500,run:0},S=null;
 const clr=()=>{clearInterval(tm);tm=null};
-function go(t,v){clr();tab=t;V=v||{};S=null;render();scrollTo(0,0)}
+function fx(){const a=$('#app');a.classList.remove('enter');void a.offsetWidth;a.classList.add('enter');clearTimeout(fx.t);fx.t=setTimeout(()=>a.classList.remove('enter'),700)}
+function go(t,v){clr();tab=t;V=v||{};S=null;fx();render();scrollTo(0,0)}
+document.addEventListener('click',e=>{if(navigator.vibrate&&e.target.closest&&e.target.closest('button,.btn,.opt,.pill,a.btn,label.btn'))try{navigator.vibrate(8)}catch(x){}},true);
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();window.__ip=e});
+function instalar(){if(window.__ip){window.__ip.prompt();window.__ip=null}else alert('No iPhone: toque em Compartilhar e depois em "Adicionar à Tela de Início". No Android: menu ⋮ e depois "Instalar app".')}
 function nav(){$('#nav').innerHTML=[['home','Início'],['mats','Matérias'],['prov','Provas'],['rev','Revisão'],['red','Redação'],['per','Perfil']].map(([k,n])=>`<button class="${tab==k?'on':''}" onclick="go('${k}')">${n}</button>`).join('')}
 const dot=id=>`<span class="dot" style="background:${COL[mi(id)%14]}">${esc(mat(id).nome[0])}</span>`;
 function prog(id){const n=(PG[id]||[]).length;let ok=0,tot=0;for(let i=0;i<n;i++){const e=(CT[id]||[])[i];if(!e)continue;const x=e.exercicios||[];tot+=x.length;const r=D.ex[id+':'+i]||{};x.forEach((q,k)=>{if(r[k]!==undefined&&r[k]==q.c)ok++})}return{ok,tot}}
@@ -152,7 +175,7 @@ function ass(){const{id,i}=V,e=(CT[id]||[])[i],t=(PG[id]||[])[i],ab=AB.find(a=>a
  const secs=[['vid','Videoaulas'],['aula','Teoria'],['resumo','Resumo'],['aud','Áudio'],['ex','Exercícios']];secs.push(ab?['ab','Questão aberta']:['gd','Modo guiado']);
  if(V.sec=='ab'&&V.rv&&ab)return resol(ab,id,i,t);
  const inQ=V.sec=='ex'||V.sec=='ab';
- let b=hd(id,mat(id).nome+' • '+t,V.sec=='ab'?'Questão aberta':V.sec=='ex'?'Exercício':V.sec=='gd'?'Modo guiado':'')+`<div class="tabs">${secs.map(([k,n])=>`<button class="pill ${V.sec==k?'on':''}" onclick="V.sec='${k}';V.q=-1;V.pk=undefined;V.rv=0;V.g=0;ass()">${ICO[k]} ${n}</button>`).join('')}</div>`;
+ let b=hd(id,mat(id).nome+' • '+t,V.sec=='ab'?'Questão aberta':V.sec=='ex'?'Exercício':V.sec=='gd'?'Modo guiado':'')+`<div class="tabs">${secs.map(([k,n])=>`<button class="pill ${V.sec==k?'on':''}" onclick="V.sec='${k}';V.q=-1;V.pk=undefined;V.rv=0;V.g=0;fx();ass()">${ICO[k]} ${n}</button>`).join('')}</div>`;
  const cap=im?`<div class="cr">${esc(im.alt)}${im.c?' · '+esc(im.c)+' ('+esc(im.l)+')':''}</div>`:'';
  if(V.sec=='vid')b+=vids(id,i,t,e);
  if(V.sec=='aula'){const R=(e&&e.resumo)||[];if(im)b+=`<div class="card"><img class="q" src="${im.s}" alt="${esc(im.alt)}">${cap}</div>`;
@@ -207,7 +230,7 @@ function exer(e,id,i,t){const X=exs(id,i),nv=NV(),gb=`<button class="btn o w" id
  let b=chips()+`<div style="margin-bottom:10px"><span class="pill">Questão ${pos+1} de ${L.length} • Múltipla Escolha${q.ia?' • IA':''}${q.rep?' • Revisão':''}</span> ${badge(lv(q))}</div><div class="card qc">${figQ(id,i,k,q)}<div class="qt">${esc(q.q)}</div>${svgOf(id,i,k,q)?'':`<button class="pill" id="ib" style="margin-top:10px;cursor:pointer" onclick="illus('${id}',${i},${k})">🖼 Ilustrar com IA</button>`}</div>`;
  b+=q.a.map((o,j)=>{let cl=(!c&&pick===j)?'sel':'',ic=cl?'✔':'';if(c){if(j==q.c){cl='ok';ic='✔'}else if(r[k]===j){cl='bad';ic='✕'}}return`<button class="opt alt ${cl}" ${c?'disabled':''} onclick="V.pk=${j};ass()"><span><b>${'ABCD'[j]})</b> ${esc(o)}</span><i>${ic}</i></button>`}).join('');
  if(c)b+=`<div class="fb ${ok?'okb':'badb'}"><div class="fi">${ok?'✓':'✕'}</div><b>${ok?'Correto!':'Incorreto'}</b>${ok?'':`<div style="font-size:15px">Resposta certa: ${'ABCD'[q.c]}</div>`}</div><div class="card"><h2>📖 Resolução comentada</h2><div class="res" style="margin:0">${esc(q.res)}</div></div>${R.length?`<div class="card"><h2>Pontos-chave do assunto</h2>${R.slice(0,3).map(x=>`<div class="ck"><span>✔</span>${esc(x)}</div>`).join('')}</div>`:''}${vcard({t:`Vídeo-resolução: ${mat(id).nome} — ${t} (questão ${k+1})`,p:CH[id]||CH0,d:'≈ 5–12 min',q:q.q.slice(0,100)+' resolução '+mat(id).nome},'r:'+key+':'+k)}`;
- b+=c?`<div class="row"><button class="btn o" onclick="delete D.ex['${key}'][${k}];save();V.pk=undefined;ass()">Refazer</button><button class="btn" onclick="${last?`nextEx(this,'${id}',${i})`:`V.q=${L[pos+1]};V.pk=undefined;ass()`}">Próxima questão</button></div><div style="text-align:center;margin-top:8px"><a href="#" class="mut" onclick="${i<(PG[id]||[]).length-1?`go('mats',{t:'ass',id:'${id}',i:${i+1},sec:'aula'})`:`go('mats',{t:'sub',id:'${id}'})`};return false">Ir para o próximo assunto</a></div>`:`<div class="row"><button class="btn o" ${pos?'':'disabled'} onclick="V.q=${L[Math.max(0,pos-1)]};V.pk=undefined;ass()">Anterior</button><button class="btn" ${pick===undefined?'disabled':''} onclick="conf('${key}',${k},${pick})">Confirmar</button></div>`;
+ b+=c?`<div class="row"><button class="btn o" onclick="delete D.ex['${key}'][${k}];save();V.pk=undefined;ass()">Refazer</button><button class="btn" onclick="${last?`nextEx(this,'${id}',${i})`:`V.q=${L[pos+1]};V.pk=undefined;fx();ass()`}">Próxima questão</button></div><div style="text-align:center;margin-top:8px"><a href="#" class="mut" onclick="${i<(PG[id]||[]).length-1?`go('mats',{t:'ass',id:'${id}',i:${i+1},sec:'aula'})`:`go('mats',{t:'sub',id:'${id}'})`};return false">Ir para o próximo assunto</a></div>`:`<div class="row"><button class="btn o" ${pos?'':'disabled'} onclick="V.q=${L[Math.max(0,pos-1)]};V.pk=undefined;ass()">Anterior</button><button class="btn" ${pick===undefined?'disabled':''} onclick="conf('${key}',${k},${pick})">Confirmar</button></div>`;
  if(D.aiok&&!svgOf(id,i,k,q))setTimeout(()=>autoIll(id,i,k),60);
  return b+gb}
 function conf(key,k,j){D.ex[key]=D.ex[key]||{};D.ex[key][k]=j;D.days[today()]=1;save();ass()}
@@ -349,10 +372,11 @@ function rcard(ex,r){const en=ex=='enem',max=en?200:2.5,L=r.criterios||[],list=(
  ${pr?`<div class="card"><h2>Proposta de intervenção</h2>${pr}</div>`:''}${(r.erros||[]).length?`<div class="card"><h2>Erros gramaticais</h2>${list(r.erros,'y')}</div>`:''}${(r.coesao||[]).length?`<div class="card"><h2>Coesão e argumentação</h2>${list(r.coesao,'y')}</div>`:''}${(r.passos||[]).length?`<div class="card"><h2>Próximos passos</h2>${list(r.passos,'g')}</div>`:''}<div class="cr">Correção feita por IA: serve como treino e pode divergir da banca real.${en?'':' A grade da UESB aqui é geral, não oficial.'}</div>`}
 /* ---------- PERFIL ---------- */
 function per(){let ex=0;Object.values(D.ex).forEach(r=>ex+=Object.keys(r).length);
- A.innerHTML=`<h1>Perfil</h1><div class="card"><label class="mut">Seu nome</label><input value="${esc(D.name)}" oninput="D.name=this.value;save()"><label class="mut" style="display:block;margin-top:10px">Data da prova</label><input type="date" value="${D.exam}" oninput="D.exam=this.value;save()"></div><div class="card"><div>Exercícios respondidos: <b>${ex}</b></div><div>Dias estudados: <b>${Object.keys(D.days).length}</b></div><div>Minutos em foco: <b>${D.foc}</b></div></div><button class="btn o w" style="margin-bottom:10px" onclick="tgl()">Alternar modo escuro / claro</button><button class="btn o w" onclick="if(confirm('Apagar todo o progresso?')){D.ex={};D.ab={};D.days={};D.foc=0;D.plano={};D.sims={};D.essay='';save();render()}">Zerar progresso</button>`}
+ A.innerHTML=`<h1>Perfil</h1><div class="card"><label class="mut">Seu nome</label><input value="${esc(D.name)}" oninput="D.name=this.value;save()"><label class="mut" style="display:block;margin-top:10px">Data da prova</label><input type="date" value="${D.exam}" oninput="D.exam=this.value;save()"></div><div class="card"><div>Exercícios respondidos: <b>${ex}</b></div><div>Dias estudados: <b>${Object.keys(D.days).length}</b></div><div>Minutos em foco: <b>${D.foc}</b></div></div><button class="btn o w" style="margin-bottom:10px" onclick="tgl()">Alternar modo escuro / claro</button>${window.__PWA&&!matchMedia('(display-mode: standalone)').matches?`<button class="btn w" style="margin-bottom:10px" onclick="instalar()">📲 Instalar como app</button>`:''}<button class="btn o w" onclick="if(confirm('Apagar todo o progresso?')){D.ex={};D.ab={};D.days={};D.foc=0;D.plano={};D.sims={};D.essay='';save();render()}">Zerar progresso</button>`}
 function cleanGen(){let ch=0;for(const key in (D.gen||{})){const[id,i]=key.split(':'),base=((CT[id]||[])[i]||{}).exercicios||[],keep=[],rm=[];D.gen[key].forEach((q,j)=>{if(isDup(q,base.concat(keep)))rm.push(base.length+j);else keep.push(q)});
  if(rm.length){ch=1;D.gen[key]=keep;const sh=kk=>kk-rm.filter(x=>x<kk).length,m=o=>{const n={};for(const k in o){if(rm.includes(+k))continue;n[sh(+k)]=o[k]}return n};if(D.ex&&D.ex[key])D.ex[key]=m(D.ex[key]);['svg','rz'].forEach(f=>{if(!D[f])return;const n={};for(const k in D[f]){if(!k.startsWith(key+':')){n[k]=D[f][k];continue}const kk=+k.slice(key.length+1);if(rm.includes(kk))continue;n[key+':'+sh(kk)]=D[f][k]}D[f]=n})}}
  if(ch)save()}
 cleanGen();
 render();
-</script></body></html>
+</script><script>if('serviceWorker' in navigator)addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})</script>
+</body></html>
