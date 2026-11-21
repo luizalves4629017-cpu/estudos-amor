@@ -202,12 +202,12 @@ function render(){nav();({home,mats,prov,rev,red,per})[tab]()}
 /* ---------- INÍCIO ---------- */
 function planDay(w){const c=(w+6)%7;return[...new Set(PL.map(r=>r[c]))].filter(x=>MAP[x]||x=='Simulado')}
 function home(){
- if(V.t=='foco')return foco();if(V.t=='cron')return cron();if(V.t=='quick')return quickReview();
+ if(V.t=='foco')return foco();if(V.t=='cron')return cron();if(V.t=='quick'||V.t=='daily')return quickReview();
  if(D.homeLayout!=='classic')return redesignedHome();
  classicHome();
 }
 function redesignedHome(){
- const {id,i}=D.last||{},topic=PG[id]?.[i],reviewCount=Math.min(5,erros().length);
+ const {id,i}=D.last||{},topic=PG[id]?.[i],reviewCount=Math.min(5,new Set(erros().map(c=>c.id+':'+c.i)).size);
  const subjects=MT.map(m=>({m,stats:(PG[m.id]||[]).map((_,i)=>topicProgress(m.id,i))}));
  subjects.sort((a,b)=>(b.m.id===id)-(a.m.id===id)||b.stats.filter(t=>t.answered).length-a.stats.filter(t=>t.answered).length);
  A.innerHTML=`<section class="new-home">
@@ -218,7 +218,7 @@ function redesignedHome(){
    <button class="btn w" onclick="${topic?'continueStudy()':"go('mats')"}">${topic?'Continuar estudo':'Escolher matéria'}</button>
   </section>
   <button type="button" class="card home-review" onclick="go('home',{t:'quick'})"><span aria-hidden="true">📋</span><span><strong>Revisar agora</strong><small>${reviewCount?reviewCount+(reviewCount===1?' questão para praticar':' questões para praticar'):'Seus erros dos exercícios aparecem aqui'}</small></span><span aria-hidden="true">›</span></button>
-  <section><h2>Seu progresso</h2><div class="card home-progress">${subjects.slice(0,2).map(({m,stats})=>`<button type="button" onclick="go('mats',{t:'sub',id:'${m.id}'})"><b>${esc(m.nome)}</b>${subjectProgress(m.id,stats)}</button>`).join('')}</div></section>
+  ${dailyCard()}<section><h2>Seu progresso</h2><div class="card home-progress">${subjects.slice(0,2).map(({m,stats})=>`<button type="button" onclick="go('mats',{t:'sub',id:'${m.id}'})"><b>${esc(m.nome)}</b>${subjectProgress(m.id,stats)}</button>`).join('')}</div></section>
   <div class="row home-tools"><button class="btn o" onclick="go('mats')">Todas as matérias</button><button class="btn o" onclick="go('home',{t:'cron'})">Cronograma</button><button class="btn o" onclick="go('home',{t:'foco'})">Foco</button></div>
  </section>`;
 }
@@ -232,36 +232,82 @@ function classicHome(){
  <div class="card hero" onclick="go('per')"><div style="font-size:18px">${dl}</div><div class="ring" style="--p:${p}"><span>${p}%</span></div></div>
  <div class="days">${dys}</div>
  <div class="card"><h2>Seu próximo passo</h2><div class="row"><button class="btn" onclick="go('home',{t:'quick'})">Revisar agora</button>${D.last&&PG[D.last.id]?.[D.last.i]?`<button class="btn o" onclick="continueStudy()">Continuar de onde parei</button>`:''}</div>${D.last&&PG[D.last.id]?.[D.last.i]?`<p class="mut progress-caption">${esc(mat(D.last.id).nome)} · ${esc(PG[D.last.id][D.last.i])}</p>`:''}</div>
- <div class="card"><h2>Hoje</h2><div class="mut" style="margin-bottom:10px">${pd.length?pd.join(' · '):'Sem estudo marcado no cronograma'}</div><div class="row"><button class="btn" onclick="hoje()">Começar</button><button class="btn o" onclick="go('home',{t:'cron'})">Cronograma</button><button class="btn o" onclick="go('home',{t:'foco'})">Foco</button></div></div>
+ ${dailyCard()}<div class="card"><h2>Hoje</h2><div class="mut" style="margin-bottom:10px">${pd.length?pd.join(' · '):'Sem estudo marcado no cronograma'}</div><div class="row"><button class="btn" onclick="hoje()">Começar</button><button class="btn o" onclick="go('home',{t:'cron'})">Cronograma</button><button class="btn o" onclick="go('home',{t:'foco'})">Foco</button></div></div>
  <div class="card"><h2>Matérias</h2><div class="grid">${MT.map(m=>`<button class="sub" onclick="go('mats',{t:'sub',id:'${m.id}'})">${dot(m.id)}${esc(m.nome)}</button>`).join('')}</div></div>`}
 function continueStudy(){
  const {id,i,sec,q}=D.last||{};
  if(PG[id]?.[i])go('mats',{t:'ass',id,i,sec,q});
 }
-function quickReview(){
- if(!V.queue){
-  const missed=erros(), counts=new Map();
-  for(const c of missed){const key=c.id+':'+c.i;counts.set(key,(counts.get(key)||0)+1)}
-  V.queue=missed.sort((a,b)=>counts.get(b.id+':'+b.i)-counts.get(a.id+':'+a.i)).slice(0,5);
-  V.at=0;V.hits=0;
+function dailyCard(){
+ const complete=D.daily?.date===today()&&D.daily.done;
+ return `<section class="card"><h2>Plano de 10 minutos</h2><p class="mut">${complete?'Plano de hoje concluído.':'Revise um assunto e pratique com uma questão.'}</p><button class="btn o" onclick="go('home',{t:'daily'})">${complete?'Ver resultado':'Abrir plano de hoje'}</button></section>`;
+}
+function rankedErrors(){
+ const missed=erros(),counts=new Map();
+ for(const {id,i} of missed){const key=id+':'+i;counts.set(key,(counts.get(key)||0)+1)}
+ return missed.sort((a,b)=>counts.get(b.id+':'+b.i)-counts.get(a.id+':'+a.i));
+}
+function practicePair(c){
+ const questions=exs(c.id,c.i),answers=D.ex[c.id+':'+c.i]||{};
+ const available=questions.map((q,k)=>k).filter(k=>k!==c.k);
+ const k=available.find(k=>answers[k]===undefined&&lv(questions[k])===lv(questions[c.k]))??
+  available.find(k=>answers[k]===undefined)??available[0]??c.k;
+ return {id:c.id,i:c.i,k,review:c.k};
+}
+function studySession(){
+ const missed=rankedErrors();
+ if(V.t!=='daily'){
+  if(!V.session){
+   const unique=new Map();
+   for(const c of missed){const key=c.id+':'+c.i;if(!unique.has(key))unique.set(key,c)}
+   V.session={queue:[...unique.values()].slice(0,5).map(practicePair),at:0,picks:[],hits:0};
+  }
+  return V.session;
  }
- const c=V.queue[V.at];
- const title=`<button class="btn o" onclick="go('home')">Voltar ao início</button><h1>Revisar agora</h1>`;
+ if(D.daily?.date!==today()){
+  const pool=cards(),last=D.last||{};
+  const first=missed[0]||pool.find(c=>c.id===last.id&&c.i===last.i)||pool[0];
+  const queue=first?[practicePair(first)]:[];
+  if(first&&!missed.length)delete queue[0].review;
+  D.daily={date:today(),queue,at:0,picks:[],hits:0,done:false};save();
+ }
+ return D.daily;
+}
+function quickReview(){
+ const daily=V.t==='daily',session=studySession(),c=session.queue[session.at],pick=session.picks[session.at];
+ const title=`<button class="btn o" onclick="go('home')">Voltar ao início</button><h1>${daily?'Plano de 10 minutos':'Revisar agora'}</h1>`;
  if(!c){
-  A.innerHTML=title+`<div class="card">${V.queue.length?`Você acertou <b>${V.hits} de ${V.queue.length}</b> nesta revisão.`:'Responda exercícios nas matérias para montar sua revisão.'}</div>`;
+  const next=rankedErrors()[0];
+  A.innerHTML=title+`<div class="card"><h2>${session.queue.length?(daily?'Plano de hoje concluído':'Revisão concluída'):'Sua revisão começa pelos exercícios'}</h2>
+  <p>${session.queue.length?`Você acertou <b>${session.hits} de ${session.queue.length}</b> nesta sessão.`:'Responda exercícios nas matérias para montar sua revisão.'}</p>
+  ${next?`<p>Na próxima revisão, vale praticar <b>${esc(PG[next.id][next.i])}</b>.</p>`:''}
+  <button class="btn o" onclick="go('mats')">Abrir matérias</button></div>`;
   return;
  }
- const q=exs(c.id,c.i)[c.k],done=V.pick!==undefined;
- A.innerHTML=title+`<p class="mut">${V.at+1} de ${V.queue.length} · ${esc(PG[c.id][c.i])}</p><div class="card">${figQ(c.id,c.i,c.k,q)}${esc(q.q)}</div>
- ${q.a.map((a,j)=>`<button class="opt alt ${done?(j==q.c?'ok':j===V.pick?'bad':''):''}" ${done?'disabled':''} onclick="quickAnswer(${j})">${esc(a)}</button>`).join('')}
- ${done?`<div class="card">${esc(q.res||'')}</div><button class="btn" onclick="V.at++;delete V.pick;quickReview()">${V.at+1===V.queue.length?'Ver resultado':'Próxima questão'}</button>`:''}`;
+ const questions=exs(c.id,c.i),q=questions[c.k],previous=questions[c.review],summary=(CT[c.id]?.[c.i]?.resumo||[])[0];
+ const hint=previous&&c.review!==c.k?previous.res:summary;
+ const done=pick!==undefined;
+ A.innerHTML=title+`<p class="mut">${daily?'Prática do dia':session.at+1+' de '+session.queue.length} · ${esc(PG[c.id][c.i])}</p>
+ ${hint?`<details class="card"><summary><b>${daily?'1. Revise a dica':'Ver uma dica'}</b></summary><p>${esc(hint)}</p></details>`:''}
+ <div class="card">${daily?'<h2>2. Pratique</h2>':''}${figQ(c.id,c.i,c.k,q)}${esc(q.q)}</div>
+ ${q.a.map((a,j)=>`<button class="opt alt ${done?(j==q.c?'ok':j===pick?'bad':''):''}" ${done?'disabled':''} onclick="quickAnswer(${j})">${esc(a)}</button>`).join('')}
+ ${done?`<div class="card"><b>${pick==q.c?'Você acertou!':'Confira a resolução'}</b><p>${esc(q.res||'')}</p></div><button class="btn" onclick="advanceReview()">${session.at+1===session.queue.length?'Ver resultado':'Próxima questão'}</button>`:''}`;
 }
 function quickAnswer(j){
- if(V.pick!==undefined)return;
- const c=V.queue[V.at],q=exs(c.id,c.i)[c.k];
- V.pick=j;
- if(j==q.c){V.hits++;D.ex[c.id+':'+c.i][c.k]=j}
+ const session=studySession(),c=session.queue[session.at],q=exs(c.id,c.i)[c.k];
+ if(session.picks[session.at]!==undefined)return;
+ session.picks[session.at]=j;
+ const key=c.id+':'+c.i,answers=D.ex[key]||={};
+ if(j==q.c)session.hits++;
+ if(answers[c.k]!==q.c)answers[c.k]=j;
  D.days[today()]=1;save();quickReview();
+}
+function advanceReview(){
+ const session=studySession();
+ if(session.picks[session.at]===undefined)return;
+ session.at++;
+ if(V.t==='daily'){session.done=session.at===session.queue.length;save()}
+ quickReview();
 }
 function hoje(){const pd=planDay(new Date().getDay());const id=pd.map(x=>MAP[x]).find(Boolean);if(!id){go('prov');return}const n=(PG[id]||[]).length;let i=0;for(;i<n;i++){const e=(CT[id]||[])[i];const r=D.ex[id+':'+i]||{};if(e&&(e.exercicios||[]).some((q,k)=>r[k]===undefined))break}go('mats',{t:'ass',id,i:Math.min(i,n-1),sec:'aula'})}
 /* ---------- CRONOGRAMA ---------- */
