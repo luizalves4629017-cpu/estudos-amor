@@ -137,7 +137,22 @@ nav button.on{background:var(--soft);color:var(--wine);transform:none}
  .home-progress button{display:block;border:0;background:none;padding:8px 0}
  .home-progress button+button{border-top:1px solid var(--pink)}
  .home-tools{flex-wrap:wrap;margin-top:10px}
-</style></head><body><div id="app"></div>
+
+ .launch-intro{position:fixed;inset:0;z-index:30;display:grid;place-items:center;pointer-events:none;background:#fff3f8;color:#6b2145;animation:launch-exit .8s ease 3.2s both}
+ .launch-intro-inner{display:grid;justify-items:center;gap:18px;padding-inline:16px}
+ .launch-intro img{width:clamp(112px,38vw,204px);height:auto;border-radius:21%;animation:launch-rise 1.65s cubic-bezier(.2,.7,.3,1) both}
+ .launch-intro b{font-size:clamp(22px,6vw,36px);animation:launch-name 1.6s ease .85s both}
+ [data-theme=dark] .launch-intro{background:var(--bg);color:var(--ink)}
+ @keyframes launch-rise{from{opacity:0;transform:translateY(84px)}to{opacity:1;transform:translateY(0)}}
+ @keyframes launch-name{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+ @keyframes launch-exit{from{opacity:1}to{opacity:0;visibility:hidden}}
+  .launch-sound{pointer-events:auto;background:transparent;color:inherit;border:1px solid currentColor;border-radius:12px;padding:6px 12px;min-height:44px;font:inherit}
+ .launch-sound[hidden]{display:none}
+ @media(prefers-reduced-motion:reduce){.launch-intro img,.launch-intro b{animation:none}}
+</style></head><body>
+<div class="launch-intro" id="launch-intro"><div class="launch-intro-inner"><img src="/icon-192.png?v=2" alt="" width="192" height="192"><b>Cantinho da Ágatha</b><button class="launch-sound" id="launch-sound" type="button" hidden onclick="playLaunchSound()">Ouvir toque</button></div></div>
+<audio id="launch-audio" src="/toque-abertura.wav" preload="auto"></audio>
+<div id="app"></div>
 <button id="tg" onclick="tgl()" title="Modo escuro">🌙</button><nav><div id="nav"></div></nav>
 <script>
 /* Fora do Claude: usa /api/ia (função da Vercel) no lugar do window.claude */
@@ -736,11 +751,20 @@ function setHomeLayout(value){
  go('home');
 }
 function per(){let ex=0;Object.values(D.ex).forEach(r=>ex+=Object.keys(r).length);
- A.innerHTML=`<h1>Perfil</h1><div class="card"><label for="home-layout"><b>Visual da tela inicial</b></label><select id="home-layout" onchange="setHomeLayout(this.value)" style="margin-top:6px"><option value="new" ${D.homeLayout!=='classic'?'selected':''}>Novo</option><option value="classic" ${D.homeLayout==='classic'?'selected':''}>Clássico</option></select></div><div class="card"><label class="mut">Seu nome</label><input value="${esc(D.name)}" oninput="D.name=this.value;save()"><label class="mut" style="display:block;margin-top:10px">Data da prova</label><input type="date" value="${D.exam}" oninput="D.exam=this.value;save()"></div><div class="card"><div>Exercícios respondidos: <b>${ex}</b></div><div>Dias estudados: <b>${Object.keys(D.days).length}</b></div><div>Minutos em foco: <b>${D.foc}</b></div></div><div class="card"><button type="button" class="btn w" onclick="salvarProgresso()">Salvar progresso</button><p class="mut" id="progress-status" role="status">O progresso é salvo automaticamente neste navegador.</p><div class="row" style="margin-top:10px"><button type="button" class="btn o" onclick="exportProgress()">Exportar backup</button><button type="button" class="btn o" onclick="$('#backup-input').click()">Importar backup</button><input id="backup-input" type="file" accept=".json,application/json" hidden onchange="importProgress(this)"></div></div><button class="btn o w" style="margin-bottom:10px" onclick="tgl()">Alternar modo escuro / claro</button>${window.__PWA&&!matchMedia('(display-mode: standalone)').matches?`<button class="btn w" style="margin-bottom:10px" onclick="instalar()">📲 Instalar como app</button>`:''}<button class="btn o w" onclick="if(confirm('Apagar todo o progresso?')){D.ex={};D.ab={};D.days={};D.foc=0;D.plano={};D.sims={};D.essay='';save();render()}">Zerar progresso</button>`}
+ A.innerHTML=`<h1>Perfil</h1><div class="card"><label><input type="checkbox" style="width:auto" ${D.launchSound!==false?'checked':''} onchange="D.launchSound=this.checked;save()"> Som de abertura</label><hr><label for="home-layout"><b>Visual da tela inicial</b></label><select id="home-layout" onchange="setHomeLayout(this.value)" style="margin-top:6px"><option value="new" ${D.homeLayout!=='classic'?'selected':''}>Novo</option><option value="classic" ${D.homeLayout==='classic'?'selected':''}>Clássico</option></select></div><div class="card"><label class="mut">Seu nome</label><input value="${esc(D.name)}" oninput="D.name=this.value;save()"><label class="mut" style="display:block;margin-top:10px">Data da prova</label><input type="date" value="${D.exam}" oninput="D.exam=this.value;save()"></div><div class="card"><div>Exercícios respondidos: <b>${ex}</b></div><div>Dias estudados: <b>${Object.keys(D.days).length}</b></div><div>Minutos em foco: <b>${D.foc}</b></div></div><div class="card"><button type="button" class="btn w" onclick="salvarProgresso()">Salvar progresso</button><p class="mut" id="progress-status" role="status">O progresso é salvo automaticamente neste navegador.</p><div class="row" style="margin-top:10px"><button type="button" class="btn o" onclick="exportProgress()">Exportar backup</button><button type="button" class="btn o" onclick="$('#backup-input').click()">Importar backup</button><input id="backup-input" type="file" accept=".json,application/json" hidden onchange="importProgress(this)"></div></div><button class="btn o w" style="margin-bottom:10px" onclick="tgl()">Alternar modo escuro / claro</button>${window.__PWA&&!matchMedia('(display-mode: standalone)').matches?`<button class="btn w" style="margin-bottom:10px" onclick="instalar()">📲 Instalar como app</button>`:''}<button class="btn o w" onclick="if(confirm('Apagar todo o progresso?')){D.ex={};D.ab={};D.days={};D.foc=0;D.plano={};D.sims={};D.essay='';save();render()}">Zerar progresso</button>`}
 function cleanGen(){let ch=0;for(const key in (D.gen||{})){const[id,i]=key.split(':'),base=((CT[id]||[])[i]||{}).exercicios||[],keep=[],rm=[];D.gen[key].forEach((q,j)=>{if(isDup(q,base.concat(keep)))rm.push(base.length+j);else keep.push(q)});
  if(rm.length){ch=1;D.gen[key]=keep;const sh=kk=>kk-rm.filter(x=>x<kk).length,m=o=>{const n={};for(const k in o){if(rm.includes(+k))continue;n[sh(+k)]=o[k]}return n};if(D.ex&&D.ex[key])D.ex[key]=m(D.ex[key]);['svg','rz'].forEach(f=>{if(!D[f])return;const n={};for(const k in D[f]){if(!k.startsWith(key+':')){n[k]=D[f][k];continue}const kk=+k.slice(key.length+1);if(rm.includes(kk))continue;n[key+':'+sh(kk)]=D[f][k]}D[f]=n})}}
  if(ch)save()}
 cleanGen();
 render();
+function playLaunchSound(){
+ if(D.launchSound===false||!$('#launch-intro'))return;
+ const button=$('#launch-sound');
+ $('#launch-audio').play().then(()=>{button.hidden=true}).catch(()=>{
+  if($('#launch-intro'))button.hidden=false;
+ });
+}
+playLaunchSound();
+setTimeout(()=>$('#launch-intro')?.remove(),4050);
 </script><script>if('serviceWorker' in navigator)addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})</script>
 </body></html>
