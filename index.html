@@ -122,6 +122,7 @@ nav button.on{background:var(--soft);color:var(--wine);transform:none}
  .enem-sheet label{font-size:13px}
  .enem-sheet select{min-height:44px}
  #enem-key{min-height:100px;margin:8px 0}
+.audio-settings{flex-wrap:wrap;margin-bottom:12px;gap:8px}.audio-settings label{flex:1 1 140px;font-size:14px}.audio-settings select{margin-top:4px;min-height:44px}
 </style></head><body><div id="app"></div>
 <button id="tg" onclick="tgl()" title="Modo escuro">🌙</button><nav><div id="nav"></div></nav>
 <script>
@@ -159,7 +160,7 @@ const clr=()=>{clearInterval(tm);tm=null};
 function fx(){const a=$('#app');a.classList.remove('enter');void a.offsetWidth;a.classList.add('enter');clearTimeout(fx.t);fx.t=setTimeout(()=>a.classList.remove('enter'),170)}
 function go(t,v){
  if(S&&!S.fin&&!confirm('Sair do simulado? As respostas desta tentativa serão descartadas.'))return;
- clr();tab=t;V=v||{};S=null;fx();render();scrollTo(0,0)
+ stopAudio();clr();tab=t;V=v||{};S=null;fx();render();scrollTo(0,0)
 }
 document.addEventListener('click',e=>{if(navigator.vibrate&&e.target.closest&&e.target.closest('button,.btn,.opt,.pill,a.btn,label.btn'))try{navigator.vibrate(8)}catch(x){}},true);
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();window.__ip=e});
@@ -298,7 +299,7 @@ function drawStudy(){const{id,i}=V,e=(CT[id]||[])[i],t=(PG[id]||[])[i],ab=AB.fin
  const secs=[...(e?.bank?[]:[['vid','Assistir à aula'],['aula','Ler a teoria']]),['ex','Praticar'],['resumo','Resumo'],['aud','Áudio']];secs.push(ab?['ab','Questão aberta']:['gd','Modo guiado']);
  if(V.sec=='ab'&&V.rv&&ab)return resol(ab,id,i,t);
  const inQ=V.sec=='ex'||V.sec=='ab';
- let b=hd(id,mat(id).nome+' • '+t,V.sec=='ab'?'Questão aberta':V.sec=='ex'?'Exercício':V.sec=='gd'?'Modo guiado':'')+`<div class="study-actions" role="group" aria-label="Atalhos do assunto">${secs.map(([k,n])=>`<button class="study-action" aria-pressed="${V.sec===k}" onclick="V.sec='${k}';V.q=-1;V.pk=undefined;V.rv=0;V.g=0;fx();ass()"><span aria-hidden="true" class="study-icon">${ICO[k]}</span><span>${n}</span></button>`).join('')}</div>`;
+ let b=hd(id,mat(id).nome+' • '+t,V.sec=='ab'?'Questão aberta':V.sec=='ex'?'Exercício':V.sec=='gd'?'Modo guiado':'')+`<div class="study-actions" role="group" aria-label="Atalhos do assunto">${secs.map(([k,n])=>`<button class="study-action" aria-pressed="${V.sec===k}" onclick="stopAudio();V.sec='${k}';V.q=-1;V.pk=undefined;V.rv=0;V.g=0;fx();ass()"><span aria-hidden="true" class="study-icon">${ICO[k]}</span><span>${n}</span></button>`).join('')}</div>`;
  const cap=im?`<div class="cr">${esc(im.alt)}${im.c?' · '+esc(im.c)+' ('+esc(im.l)+')':''}</div>`:'';
  if(V.sec=='vid')b+=vids(id,i,t,e);
  if(V.sec=='aula'){const R=(e&&e.resumo)||[];if(im)b+=`<div class="card"><img class="q" src="${im.s}" alt="${esc(im.alt)}">${cap}</div>`;
@@ -440,19 +441,66 @@ async function genAb(id,i,t,btn,silent){const s=await smp();if(!s){if(!silent)al
   if(!r||!r.q)throw 0;D.genab=D.genab||{};D.genab[id+':'+i]=Object.assign({id:'g:'+id+':'+i+':'+Date.now(),ia:1},r,{nv:NV()||'Médio'});save();V.rv=0;ass();return true}catch(x){if(!silent)alert('Não consegui gerar agora.');if(b){b.disabled=false;b.textContent=btn?'Próxima questão':'✨ Gerar questão aberta com IA'}return false}}
 async function nextAb(b,id,i,t){b.disabled=true;b.textContent='Carregando…';if(await genAb(id,i,t,b,1))return;const key=id+':'+i,cur=((D.genab||{})[key]||AB.find(a=>a.w==id&&a.ti==i)||{}).q,o=AB.filter(a=>a.w==id&&a.q!=cur).sort(()=>Math.random()-.5)[0];if(!o){alert('Não há outra questão aberta disponível agora.');b.disabled=false;b.textContent='Próxima questão';return}D.genab=D.genab||{};D.genab[key]=Object.assign({},o,{id:'g2:'+key+':'+Date.now(),sourceQuestion:o.id});save();V.rv=0;ass()}
 /* áudio + autoavaliação */
-let AU={on:0,rate:1};
+let AU={on:false,token:0,rate:.9,progress:0};
 function aud(e,id,i,t){const R=e.resumo||[],key=id+':'+i,txt=t+'. '+R.join('. '),min=Math.max(1,Math.round(txt.split(/\s+/).length/150/AU.rate)),s=(D.sum||{})[key]||'',r=V.ev;
- return`<div class="card"><h2>Resumo em áudio <span class="mut">(${min} min)</span></h2><div class="mut" style="margin-bottom:6px">Voz: ${VOZ?esc(VOZ.name):'padrão do aparelho'} · depende das vozes instaladas no seu aparelho</div><div class="au"><button class="btn" onclick="playA('${key}')">${AU.on?'⏸':'▶'}</button><div style="flex:1"><div class="bar"><i id="ap" style="width:0;background:var(--wine)"></i></div></div><button class="pill n" onclick="AU.rate=AU.rate==1?1.5:AU.rate==1.5?2:1;if(AU.on)playA('${key}',1);aud2()">${AU.rate.toFixed(1)}x</button></div></div>
+ return`<div class="card"><h2>Resumo em áudio <span class="mut">(${min} min)</span></h2><div class="row audio-settings"><label>Voz<select id="audio-voice" onchange="setAudioVoice(this.value)">${audioVoiceOptions()}</select></label><label>Velocidade<select onchange="AU.rate=Number(this.value);stopAudio();ass()">${[[.8,'Mais lenta'],[.9,'Suave'],[1,'Normal'],[1.2,'Mais rápida']].map(([rate,label])=>`<option value="${rate}" ${rate===AU.rate?'selected':''}>${label}</option>`).join('')}</select></label></div><div class="au"><button type="button" class="btn" onclick="playA('${key}')">${AU.on?'Parar':'Ouvir resumo'}</button><div style="flex:1"><progress class="study-progress" id="ap" max="100" value="${AU.progress}" aria-label="Progresso do áudio"></progress></div></div></div>
  <div class="card"><h2>Pontos principais do áudio</h2><ul style="margin:0;padding-left:18px">${R.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
  <div class="card"><h2>Agora é sua vez! Resuma o que entendeu</h2><div class="ta"><textarea id="sm" oninput="D.sum=D.sum||{};D.sum['${key}']=this.value;$('#smc').textContent=wc(this.value)+' palavras'" placeholder="Fale ou escreva com suas palavras">${esc(s)}</textarea><span class="wc" id="smc">${wc(s)} palavras</span><button class="mic" id="smm" onclick="mic('sm','smm')">🎤</button></div><button class="btn w" style="margin-top:8px" onclick="avalia('${key}')">Avaliar meu resumo</button></div>
  ${r&&r.key==key?`<div class="card"><h2>Nota: ${r.n}/10</h2>${r.ok.length?`<b>O que você acertou</b>${r.ok.map(x=>`<div class="g">✔ ${esc(x)}</div>`).join('')}`:''}${r.no.length?`<b>O que faltou acrescentar</b>${r.no.map(x=>`<div class="y">• ${esc(x)}</div>`).join('')}<button class="btn w" style="margin-top:8px" onclick="addCad('${key}')">Acrescentar ao meu resumo</button>`:''}</div>`:''}`}
-function aud2(){const k=V.id+':'+V.i;ass()}
-let VOZ=null;function pickVoice(){if(!window.speechSynthesis)return;const v=speechSynthesis.getVoices().filter(x=>/^pt/i.test(x.lang)),f=/(maria|francisca|luciana|vit[óo]ria|fernanda|thalita|helena|camila|female|feminina|google portugu)/i;VOZ=v.find(x=>/pt-BR/i.test(x.lang)&&f.test(x.name))||v.find(x=>/pt-BR/i.test(x.lang))||v[0]||null}
-if(window.speechSynthesis){pickVoice();speechSynthesis.onvoiceschanged=pickVoice}
-function playA(key,re){const S=window.speechSynthesis,[id,i]=key.split(':'),e=CT[id][i];if(!S){alert('Seu navegador não tem leitura em voz.');return}
- AU.tk=(AU.tk||0)+1;const tk=AU.tk;S.cancel();if(AU.on&&!re){AU.on=0;ass();return}
- const parts=[PG[id][i]].concat(e.resumo),tot=parts.length;let n=0;AU.on=1;
- const nx=()=>{if(tk!=AU.tk)return;if(n>=tot){AU.on=0;ass();return}const u=new SpeechSynthesisUtterance(parts[n]);u.lang='pt-BR';if(VOZ)u.voice=VOZ;u.rate=AU.rate*0.95;u.pitch=1.1;u.onend=()=>{n++;const b=$('#ap');if(b)b.style.width=Math.round(n/tot*100)+'%';setTimeout(nx,380)};u.onerror=()=>{AU.on=0};S.speak(u)};nx();if(!re)ass()}
+function portugueseVoices(){
+ return (window.speechSynthesis?.getVoices()||[]).filter(v=>/^pt(?:[-_]|$)/i.test(v.lang)).sort((a,b)=>voiceRank(b)-voiceRank(a));
+}
+function voiceRank(v){
+ const brazil=/^pt[-_]br$/i.test(v.lang);
+ const natural=/natural|neural|premium|enhanced|aprimorad/i.test(v.name);
+ return (brazil?4:0)+(natural?2:0)+(/google/i.test(v.name)?1:0);
+}
+function audioVoiceOptions(){
+ return '<option value="">Automática</option>'+portugueseVoices().map(v=>`<option value="${esc(v.voiceURI)}" ${D.audioVoice===v.voiceURI?'selected':''}>${esc(v.name)} · ${esc(v.lang)}</option>`).join('');
+}
+function setAudioVoice(value){
+ D.audioVoice=value;save();stopAudio();ass();
+}
+window.speechSynthesis?.addEventListener('voiceschanged',()=>{
+ const select=$('#audio-voice');if(select)select.innerHTML=audioVoiceOptions();
+});
+function stopAudio(){
+ AU.token++;AU.progress=0;
+ if(AU.on){AU.on=false;window.speechSynthesis.cancel()}
+}
+function playA(key){
+ const synth=window.speechSynthesis;
+ if(!synth){alert('A leitura em voz não está disponível neste navegador.');return}
+ if(AU.on){stopAudio();ass();return}
+ const [id,i]=key.split(':'),voices=portugueseVoices();
+ const voice=voices.find(v=>v.voiceURI===D.audioVoice)||voices[0];
+ const parts=[PG[id][i]+'.',...((CT[id][i]||{}).resumo||[])].filter(Boolean);
+ const token=++AU.token;
+ let n=0;
+ AU.on=true;AU.progress=0;ass();
+ function next(){
+  if(token!==AU.token)return;
+  if(n===parts.length){AU.on=false;ass();return}
+  const utterance=new SpeechSynthesisUtterance(parts[n]);
+  utterance.lang=voice?.lang||'pt-BR';
+  if(voice)utterance.voice=voice;
+  utterance.rate=AU.rate;
+  utterance.pitch=1;
+  utterance.onend=()=>{
+   if(token!==AU.token)return;
+   AU.progress=Math.round(++n/parts.length*100);
+   const bar=$('#ap');if(bar)bar.value=AU.progress;
+   setTimeout(next,210);
+  };
+  utterance.onerror=()=>{
+   if(token!==AU.token)return;
+   AU.on=false;ass();
+   alert('Não consegui reproduzir com essa voz. Escolha outra e tente novamente.');
+  };
+  synth.speak(utterance);
+ }
+ next();
+}
 const nz=s=>String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').split(' ').filter(w=>w.length>3).map(w=>w.slice(0,5));
 function avalia(key){const[id,i]=key.split(':'),R=CT[id][i].resumo||[],T=new Set(nz(($('#sm')||{}).value||'')),ok=[],no=[];
  R.forEach(x=>{const w=[...new Set(nz(x))];(w.length&&w.filter(a=>T.has(a)).length/w.length>=.4?ok:no).push(x)});
